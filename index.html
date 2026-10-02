@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>E-Library — API & Filter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">📚 E-Library</div>
+  <nav>
+    <button class="tab active" data-source="all">Semua</button>
+    <button class="tab" data-source="ebook">Ebook</button>
+    <button class="tab" data-source="indonesia">Indonesia</button>
+    <button class="tab" data-source="manga">Manga</button>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">MULTI API LIBRARY</p>
+      <h1>Cari buku, koleksi Indonesia, dan manga dari API.</h1>
+      <p>Filter Indonesia diambil dari repository Indonesia, bukan sekadar filter bahasa.</p>
+    </div>
+  </section>
+
+  <section class="toolbar">
+    <input id="search" type="search" placeholder="Cari judul, penulis, subjek...">
+    <select id="category">
+      <option value="all">Semua kategori</option>
+      <option value="sejarah">Sejarah</option>
+      <option value="pendidikan">Pendidikan</option>
+      <option value="budaya">Budaya</option>
+      <option value="ekonomi">Ekonomi</option>
+      <option value="hukum">Hukum</option>
+      <option value="sastra">Sastra</option>
+      <option value="sosial">Sosial</option>
+      <option value="geografi">Geografi</option>
+      <option value="lainnya">Lainnya</option>
+    </select>
+    <select id="year">
+      <option value="all">Semua tahun</option>
+    </select>
+    <button id="reload" class="primary">Muat ulang API</button>
+  </section>
+
+  <div class="status" id="status">Menyiapkan API...</div>
+  <section id="grid" class="grid"></section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <button id="closeModal" class="close">×</button>
+    <div id="detail"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
