@@ -34,11 +34,4 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-    'open_library' => [
-        'url' => env('OPEN_LIBRARY_URL', 'https://openlibrary.org/search.json'),
-    ],
-    'komiku' => [
-        'url' => env('KOMIKU_URL', 'https://komiku.org'),
-    ],
-
 ];
