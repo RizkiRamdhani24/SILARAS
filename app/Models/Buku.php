@@ -10,7 +10,12 @@ class Buku extends Model
     protected $table = 'buku';
     protected $primaryKey = 'id_buku';
 
-    protected $fillable = ['judul_buku', 'penerbit', 'pengarang', 'kategori', 'stock'];
+    protected $fillable = ['judul_buku', 'penerbit', 'pengarang', 'stock', 'kategori'];
+
+    protected function casts(): array
+    {
+        return ['stock' => 'integer'];
+    }
 
     public function peminjaman(): HasMany
     {

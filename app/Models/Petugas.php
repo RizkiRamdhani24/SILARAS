@@ -10,7 +10,7 @@ class Petugas extends Authenticatable
     protected $table = 'petugas';
     protected $primaryKey = 'id_petugas';
 
-    protected $fillable = ['nama_petugas', 'email', 'shift', 'password'];
+    protected $fillable = ['nama_petugas', 'email_petugas', 'shift', 'password'];
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
