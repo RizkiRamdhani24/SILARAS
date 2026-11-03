@@ -51,7 +51,11 @@ class Peminjaman extends Model
     }
 
     public function pengembalian(): HasOne
-    {
-        return $this->hasOne(Pengembalian::class, 'id_peminjaman', 'id_peminjaman');
-    }
+{
+    return $this->hasOne(
+        Pengembalian::class,
+        'id_peminjaman',
+        'id_peminjaman'
+    );
+}
 }
