@@ -7,10 +7,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Anggota extends Authenticatable
 {
+    public const STATUS_AKTIF = 'aktif';
+    public const STATUS_NONAKTIF = 'nonaktif';
+
     protected $table = 'anggota';
     protected $primaryKey = 'id_anggota';
 
-    protected $fillable = ['nama_anggota', 'email', 'no_telp', 'password'];
+    protected $fillable = ['nama_anggota', 'email_anggota', 'no_telp', 'password', 'status_anggota'];
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array

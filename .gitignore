@@ -22,3 +22,20 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Frontend audit artifacts
+.playwright-mcp/
+audit-*.yml
+detail-preview-*
+diagnostic-*.png
+katalog-*
+preview-*.png
+stage*.png
+verification-*
+*-console.txt
+*-network.txt
+AUDIT-*.md
+STAGE-*.md
+
+# Design assets (for team reference only)
+docs/DESAIN-SILARAS/

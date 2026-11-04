@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Peminjaman extends Model
 {
+    public const STATUS_MENUNGGU_VALIDASI = 'menunggu validasi';
+    public const STATUS_DIPINJAM = 'dipinjam';
+    public const STATUS_TERLAMBAT = 'terlambat';
+    public const STATUS_PENGEMBALIAN_DIAJUKAN = 'pengembalian diajukan';
+    public const STATUS_DIKEMBALIKAN = 'dikembalikan';
+    public const STATUS_DITOLAK = 'ditolak';
+
     protected $table = 'peminjaman';
     protected $primaryKey = 'id_peminjaman';
 
@@ -17,7 +24,7 @@ class Peminjaman extends Model
         'id_petugas',
         'tgl_peminjaman',
         'tgl_jatuh_tempo',
-        'status',
+        'status_peminjaman',
     ];
 
     protected function casts(): array
