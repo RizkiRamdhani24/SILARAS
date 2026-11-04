@@ -1,12 +1,8 @@
 @php
-    // Data petugas yang sedang login (guard "petugas"). Memakai nilai contoh jika belum login.
-    $petugas = auth('petugas')->user();
-    $namaPetugas = $petugas->nama_petugas ?? 'Eom Seonghyeon';
-    $shiftPetugas = ucfirst(strtolower($petugas->shift ?? 'pagi'));
-    $jamShift = ['pagi' => '08:00 - 15:00 WIB', 'sore' => '13:30 - 20:00 WIB'][strtolower($shiftPetugas)] ?? '';
-    $inisial = collect(explode(' ', $namaPetugas))->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
-    // TODO backend: ganti dengan jumlah peminjaman berstatus "menunggu validasi".
-    $antreanPinjam = $antreanPinjam ?? 7;
+    // Data petugas yang sedang login (guard "petugas"), dari tabel petugas: nama_petugas, shift (boleh kosong).
+    [$namaPetugas, $shiftPetugas] = \App\Support\PetugasData::identitasPetugas();
+    $inisial = \App\Support\PetugasData::inisial($namaPetugas);
+    $antreanPinjam = \App\Support\PetugasData::antreanPeminjaman();
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -29,6 +25,24 @@
             @include('petugas.partials.topbar')
 
             <main id="konten" class="flex-1 px-4 pb-10 sm:px-6 lg:px-8">
+                {{-- Pesan dari controller (redirect()->with('success'|'error', ...)) dan galat validasi form --}}
+                @if (session('success'))
+                    <p role="status" class="mt-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">{{ session('success') }}</p>
+                @endif
+                @if (session('error'))
+                    <p role="alert" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800 ring-1 ring-red-200">{{ session('error') }}</p>
+                @endif
+                @if ($errors->any())
+                    <div role="alert" class="mt-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
+                        <p class="font-semibold">Data belum bisa disimpan:</p>
+                        <ul class="mt-1 list-disc pl-5">
+                            @foreach ($errors->all() as $pesan)
+                                <li>{{ $pesan }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 @yield('content')
             </main>
 
