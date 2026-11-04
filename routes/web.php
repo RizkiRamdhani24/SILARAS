@@ -146,6 +146,30 @@ Route::prefix('petugas')->name('petugas.')->middleware('role.petugas')->group(fu
         return view('petugas.dashboard.index');
     })->name('dashboard');
 
+    Route::get('/buku', function () {
+        return view('petugas.buku.index');
+    })->name('buku');
+
+    Route::get('/anggota', function () {
+        return view('petugas.anggota.index');
+    })->name('anggota');
+
+    Route::get('/peminjaman', function () {
+        return view('petugas.peminjaman.index');
+    })->name('peminjaman');
+
+    Route::get('/pengembalian', function () {
+        return view('petugas.pengembalian.index');
+    })->name('pengembalian');
+
+    Route::get('/denda', function () {
+        return view('petugas.denda.index');
+    })->name('denda');
+
+    Route::get('/transaksi', function () {
+        return view('petugas.transaksi.index');
+    })->name('transaksi');
+
     Route::get('/', function () {
         return redirect()->route('petugas.dashboard');
     });
@@ -185,4 +209,4 @@ require __DIR__ . '/modules/peminjaman.php';
 require __DIR__ . '/modules/pengembalian.php';
 require __DIR__ . '/modules/riwayat.php';
 require __DIR__ . '/modules/kelola-anggota.php';
-require __DIR__ . '/modules/dashboard-petugas.php';
+require __DIR__ . '/modules/petugas-preview.php';

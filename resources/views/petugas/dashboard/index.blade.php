@@ -3,32 +3,69 @@
 @section('title', 'Dashboard Petugas')
 
 @php
-    $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $namaPetugas = auth('petugas')->user()->nama_petugas ?? 'Eom Seonghyeon';
     $shiftPetugas = ucfirst(strtolower(auth('petugas')->user()->shift ?? 'pagi'));
 
-    // TODO backend: semua data di bawah ini adalah contoh. Ganti dengan hasil query dari controller.
-    $antrean = [
-        ['id' => 'PMJ-2024-0891', 'nama' => 'Arya Pratama', 'nim' => '21040119', 'prodi' => 'TI-S1', 'judul' => 'Database System Concepts', 'isbn' => '978-0078022159', 'rak' => 'CS-301'],
-        ['id' => 'PMJ-2024-0892', 'nama' => 'Siti Rahmawati', 'nim' => '22050214', 'prodi' => 'Psikologi', 'judul' => 'Filosofi Teras', 'isbn' => '978-6024125189', 'rak' => 'PH-104'],
-        ['id' => 'PMJ-2024-0893', 'nama' => 'Dimas Anggoro', 'nim' => '20010188', 'prodi' => 'Sistem Informasi', 'judul' => 'Clean Architecture', 'isbn' => '978-0132350884', 'rak' => 'CS-102'],
-    ];
-    $kembali = [
-        ['id' => 'KMB-2024-0412', 'telat' => 3, 'judul' => 'Algoritma Pemrograman C++', 'peminjam' => 'Maeladia Putri (21040055)', 'tempo' => '12 Okt 2024', 'masuk' => '15 Okt 2024', 'denda' => 6000],
-        ['id' => 'KMB-2024-0413', 'telat' => 0, 'judul' => 'Pengantar Psikologi Kognitif', 'peminjam' => 'Dhini Aulia (22050110)', 'tempo' => '15 Okt 2024', 'masuk' => '15 Okt 2024', 'denda' => 0],
-    ];
-    $kritis = [
-        ['judul' => 'Artificial Intelligence: A Modern Approach', 'info' => 'Stuart Russell • Pearson', 'kode' => 'BK-0101', 'stok' => 1],
-        ['judul' => 'Komunikasi Data dan Jaringan', 'info' => 'Behrouz A. Forouzan • McGraw-Hill', 'kode' => 'BK-0205', 'stok' => 0],
-        ['judul' => 'Clean Architecture', 'info' => 'Robert C. Martin • Prentice Hall', 'kode' => 'BK-0105', 'stok' => 1],
-    ];
+    $pendingLoans = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+        ? \App\Models\Peminjaman::query()->where('status_peminjaman', \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI)->count()
+        : 0;
+    $totalBooks = \Illuminate\Support\Facades\Schema::hasTable('buku') ? \App\Models\Buku::query()->count() : 0;
+    $totalCopies = \Illuminate\Support\Facades\Schema::hasTable('buku') ? (int) \App\Models\Buku::query()->sum('stock') : 0;
+    $memberCount = \Illuminate\Support\Facades\Schema::hasTable('anggota') ? \App\Models\Anggota::query()->count() : 0;
+    $lateDenda = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
+        ? (float) \App\Models\Pengembalian::query()->where('status_denda', \App\Models\Pengembalian::DENDA_BELUM_DIBAYAR)->sum('denda')
+        : 0;
+    $criticalBooks = \Illuminate\Support\Facades\Schema::hasTable('buku')
+        ? \App\Models\Buku::query()->where('stock', '<=', 1)->orderBy('stock')->orderBy('judul_buku')->take(3)->get()
+        : collect();
+    $antrean = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+        ? \App\Models\Peminjaman::query()->with(['anggota', 'buku'])
+            ->where('status_peminjaman', \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI)
+            ->orderByDesc('tgl_peminjaman')
+            ->limit(3)
+            ->get()
+            ->map(fn ($loan) => [
+                'id' => 'PMJ-' . $loan->id_peminjaman,
+                'nama' => $loan->anggota?->nama_anggota ?? 'Anggota',
+                'nim' => $loan->anggota?->id_anggota ?? '-',
+                'prodi' => 'Anggota',
+                'judul' => $loan->buku?->judul_buku ?? 'Judul belum ada',
+                'isbn' => $loan->buku?->isbn ?? '-',
+                'rak' => $loan->buku?->rak ?? '-',
+            ])
+        : collect();
+    $kembali = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
+        ? \App\Models\Pengembalian::query()->with(['peminjaman.anggota', 'peminjaman.buku'])
+            ->orderByDesc('tgl_pengembalian')
+            ->limit(2)
+            ->get()
+            ->map(function ($return) {
+                $daysLate = 0;
+                $loan = $return->peminjaman;
+                if ($loan && $loan->tgl_jatuh_tempo && $return->tgl_pengembalian) {
+                    $daysLate = max(0, $return->tgl_pengembalian->diffInDays($loan->tgl_jatuh_tempo, false));
+                }
+
+                return [
+                    'id' => 'KMB-' . $return->id_pengembalian,
+                    'telat' => $daysLate,
+                    'judul' => $loan?->buku?->judul_buku ?? 'Judul belum ada',
+                    'peminjam' => ($loan?->anggota?->nama_anggota ?? 'Anggota') . ' (' . ($loan?->anggota?->id_anggota ?? '-') . ')',
+                    'tempo' => $loan?->tgl_jatuh_tempo ? $loan->tgl_jatuh_tempo->format('d M Y') : '-',
+                    'masuk' => $return->tgl_pengembalian ? $return->tgl_pengembalian->format('d M Y') : '-',
+                    'denda' => (float) $return->denda,
+                ];
+            })
+        : collect();
+    $kritis = $criticalBooks->map(fn ($book) => ['judul' => $book->judul_buku, 'info' => ($book->pengarang ?? 'Penulis tidak tersedia') . ' • ' . ($book->penerbit ?? 'Penerbit tidak tersedia'), 'kode' => 'BK-' . $book->id_buku, 'stok' => (int) $book->stock])->all();
     $tren = [
         ['Sen', 38, 27], ['Sel', 52, 44], ['Rab', 22, 18], ['Kam', 58, 54], ['Jum', 42, 34], ['Sab', 20, 16], ['Hari ini', 62, 46],
     ];
     $log = [
-        ['jam' => '08:35 WIB', 'isi' => 'memproses pengembalian KMB-2024-0410. Stok buku +1.', 'bold' => $namaPetugas, 'meta' => 'id_petugas: 101'],
-        ['jam' => '08:22 WIB', 'isi' => 'Pencatatan denda Rp 10.000 pada transaksi KMB-2024-0409 (terlambat 5 hari).', 'bold' => null, 'meta' => 'Tarif Rp 2.000/hari'],
-        ['jam' => '08:10 WIB', 'isi' => 'Registrasi data anggota baru Novika.', 'bold' => null, 'meta' => 'UC-06 Kelola Anggota'],
+        ['jam' => 'Sekarang', 'isi' => 'Antrean peminjaman menunggu validasi: ' . $pendingLoans . ' transaksi.', 'bold' => $namaPetugas, 'meta' => 'petugas / dashboard'],
+        ['jam' => 'Baru', 'isi' => 'Denda belum dibayar tercatat: ' . $rp($lateDenda) . '.', 'bold' => null, 'meta' => 'status_denda'],
+        ['jam' => 'Aktif', 'isi' => 'Jumlah anggota terdaftar: ' . $memberCount . ' orang.', 'bold' => null, 'meta' => 'anggota'],
     ];
     $maks = max(array_map(fn ($t) => max($t[1], $t[2]), $tren));
 @endphp
@@ -61,28 +98,28 @@
     <section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="Ringkasan layanan">
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Validasi pinjam</p><span class="grid size-9 place-items-center rounded-lg bg-amber-50 text-amber-600">@include('petugas.partials.icon', ['name' => 'borrow', 'class' => 'size-5'])</span></div>
-            <p class="mt-3 text-3xl font-extrabold">3 <span class="text-sm font-medium text-slate-500">Menunggu petugas</span></p>
+            <p class="mt-3 text-3xl font-extrabold">{{ $pendingLoans }} <span class="text-sm font-medium text-slate-500">Menunggu petugas</span></p>
             <p class="mt-3 inline-flex rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">Cek stok &amp; tunggakan</p>
         </div>
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Proses kembali</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'return', 'class' => 'size-5'])</span></div>
-            <p class="mt-3 text-3xl font-extrabold">28 <span class="text-sm font-medium text-slate-500">Buku diterima</span></p>
+            <p class="mt-3 text-3xl font-extrabold">{{ $kembali->count() }} <span class="text-sm font-medium text-slate-500">Buku diterima</span></p>
             <p class="mt-3 text-xs text-slate-500">Pemeriksaan tgl kembali &amp; stok +1</p>
         </div>
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Hitung denda</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'cash', 'class' => 'size-5'])</span></div>
-            <p class="mt-3 text-3xl font-extrabold">{{ $rp(145000) }}</p>
-            <p class="mt-3 flex justify-between text-xs"><span class="text-blue-700">Tarif {{ $rp(2000) }}/hari</span><span class="text-blue-700">3 denda aktif</span></p>
+            <p class="mt-3 text-3xl font-extrabold">{{ $rp($lateDenda) }}</p>
+            <p class="mt-3 flex justify-between text-xs"><span class="text-blue-700">Tarif {{ $rp(2000) }}/hari</span><span class="text-blue-700">{{ $kembali->filter(fn($item) => $item['denda'] > 0)->count() }} denda aktif</span></p>
         </div>
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Kelola buku</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'book', 'class' => 'size-5'])</span></div>
-            <p class="mt-3 text-2xl font-extrabold">15.420 <span class="text-sm font-medium text-slate-500">Judul</span></p>
-            <p class="text-2xl font-extrabold">42.180 <span class="text-sm font-medium text-slate-500">Stok</span></p>
-            <p class="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">@include('petugas.partials.icon', ['name' => 'alert', 'class' => 'size-3.5']) 3 judul stok kritis (≤1)</p>
+            <p class="mt-3 text-2xl font-extrabold">{{ number_format($totalBooks, 0, ',', '.') }} <span class="text-sm font-medium text-slate-500">Judul</span></p>
+            <p class="text-2xl font-extrabold">{{ number_format($totalCopies, 0, ',', '.') }} <span class="text-sm font-medium text-slate-500">Stok</span></p>
+            <p class="mt-2 flex items-center gap-1 text-xs font-medium text-amber-700">@include('petugas.partials.icon', ['name' => 'alert', 'class' => 'size-3.5']) {{ $criticalBooks->count() }} judul stok kritis (≤1)</p>
         </div>
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Kelola anggota</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'users', 'class' => 'size-5'])</span></div>
-            <p class="mt-3 text-3xl font-extrabold">8.924 <span class="text-sm font-medium text-slate-500">Terdaftar</span></p>
+            <p class="mt-3 text-3xl font-extrabold">{{ number_format($memberCount, 0, ',', '.') }} <span class="text-sm font-medium text-slate-500">Terdaftar</span></p>
             <p class="mt-3 text-xs text-slate-500">Status aktif validasi peminjaman</p>
         </div>
     </section>

@@ -5,15 +5,37 @@
 @php
     $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
 
-    // TODO backend: ganti dengan data tabel anggota. Catatan: NIM, prodi, dan kuota belum ada di tabel anggota;
-    // tampilan ini memakai data contoh (tabel anggota saat ini: nama_anggota, email_anggota, no_telp, status_anggota).
-    $anggota = [
-        ['id' => '#AGT-089', 'induk' => 'NIM: 2209106089', 'nama' => 'Muhammad Farhan', 'sub' => 'S1 Sistem Informasi', 'email' => 'farhan@student.univ.ac.id', 'telp' => '0812-3456-7890', 'pinjam' => 1, 'catatan' => 'Denda '.$rp(7000), 'tone' => 'amber', 'status' => 'Perlu pelunasan', 'cat' => 'tunggakan'],
-        ['id' => '#AGT-112', 'induk' => 'NIM: 2104011245', 'nama' => 'Siti Nurhaliza', 'sub' => 'S1 Teknik Informatika', 'email' => 'siti.nurhaliza@student.univ.ac.id', 'telp' => '0821-9876-5432', 'pinjam' => 1, 'catatan' => 'Tepat waktu', 'tone' => 'blue', 'status' => 'Aktif', 'cat' => 'bebas'],
-        ['id' => '#AGT-041', 'induk' => 'NIM: 2004089201', 'nama' => 'Rian Ardianto', 'sub' => 'S1 Ilmu Komunikasi', 'email' => 'rian.ardianto@student.univ.ac.id', 'telp' => '0857-1122-3344', 'pinjam' => 0, 'catatan' => 'Bebas pinjam', 'tone' => 'blue', 'status' => 'Aktif', 'cat' => 'bebas'],
-        ['id' => '#AGT-019', 'induk' => 'NIM: 2203001567', 'nama' => 'Dimas Arya', 'sub' => 'S1 Akuntansi', 'email' => 'dimas.arya@student.univ.ac.id', 'telp' => '0813-7788-9900', 'pinjam' => 2, 'catatan' => 'Terlambat 2 hari', 'tone' => 'red', 'status' => 'Ditangguhkan', 'cat' => 'tunggakan ditangguhkan'],
-        ['id' => '#AGT-095', 'induk' => 'NIP: 1902014432', 'nama' => 'Dewi Sartika', 'sub' => 'Staf Administrasi Akademik', 'email' => 'dewi.sartika@staff.univ.ac.id', 'telp' => '0818-4455-6677', 'pinjam' => 3, 'catatan' => 'Maks kuota', 'tone' => 'blue', 'status' => 'Aktif', 'cat' => 'bebas'],
-    ];
+    $anggota = \Illuminate\Support\Facades\Schema::hasTable('anggota')
+        ? \App\Models\Anggota::query()->orderBy('nama_anggota')->get()->map(function ($member) {
+            $pinjam = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+                ? \App\Models\Peminjaman::query()->where('id_anggota', $member->id_anggota)->whereIn('status_peminjaman', [
+                    \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI,
+                    \App\Models\Peminjaman::STATUS_DIPINJAM,
+                    \App\Models\Peminjaman::STATUS_TERLAMBAT,
+                    \App\Models\Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN,
+                ])->count()
+                : 0;
+
+            $status = $member->status_anggota === 'nonaktif' ? 'Ditangguhkan' : 'Aktif';
+            $cat = $member->status_anggota === 'nonaktif' ? 'tunggakan ditangguhkan' : 'bebas';
+            $catatan = $member->status_anggota === 'nonaktif' ? 'Akun nonaktif' : 'Tepat waktu';
+            $tone = $member->status_anggota === 'nonaktif' ? 'red' : 'blue';
+
+            return [
+                'id' => '#AGT-' . str_pad((string) $member->id_anggota, 3, '0', STR_PAD_LEFT),
+                'induk' => 'ID: ' . $member->id_anggota,
+                'nama' => $member->nama_anggota,
+                'sub' => $member->email_anggota,
+                'email' => $member->email_anggota,
+                'telp' => $member->no_telp ?? '-',
+                'pinjam' => $pinjam,
+                'catatan' => $catatan,
+                'tone' => $tone,
+                'status' => $status,
+                'cat' => $cat,
+            ];
+        })->all()
+        : [];
 
     $bar = ['blue' => 'bg-blue-700', 'amber' => 'bg-amber-500', 'red' => 'bg-red-600'];
     $teksCatatan = ['blue' => 'text-slate-500', 'amber' => 'text-amber-700', 'red' => 'text-red-600'];

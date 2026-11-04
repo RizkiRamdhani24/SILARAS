@@ -3,22 +3,22 @@
 @section('title', 'Kelola Buku')
 
 @php
-    // TODO backend (Exel): ganti dengan data dari tabel buku (judul_buku, pengarang, penerbit, kategori, stock).
-    // Catatan: ISBN, rak, dan edisi belum ada di tabel buku; tampilan ini memakai data contoh.
-    $buku = [
-        ['kode' => 'BK-0101', 'judul' => 'Artificial Intelligence: A Modern Approach', 'rak' => 'CS-301', 'isbn' => '978-0136042594', 'pengarang' => 'Stuart Russell, Peter Norvig', 'edisi' => 'Edisi 4 Revisi', 'penerbit' => 'Pearson Education', 'kategori' => 'Komputer', 'stok' => 1],
-        ['kode' => 'BK-0102', 'judul' => 'Komunikasi Data dan Jaringan', 'rak' => 'CS-301', 'isbn' => '978-0072967753', 'pengarang' => 'Behrouz A. Forouzan', 'edisi' => 'Edisi Bahasa Indonesia', 'penerbit' => 'McGraw-Hill', 'kategori' => 'Komputer', 'stok' => 0],
-        ['kode' => 'BK-0103', 'judul' => 'Clean Architecture', 'rak' => 'CS-102', 'isbn' => '978-0134494166', 'pengarang' => 'Robert C. Martin', 'edisi' => 'Software Craftsmanship Series', 'penerbit' => 'Prentice Hall', 'kategori' => 'Komputer', 'stok' => 1],
-        ['kode' => 'BK-0104', 'judul' => 'Database System Concepts', 'rak' => 'CS-301', 'isbn' => '978-0078022159', 'pengarang' => 'Silberschatz, Korth, Sudarshan', 'edisi' => 'Edisi Internasional', 'penerbit' => 'McGraw-Hill Education', 'kategori' => 'Komputer', 'stok' => 4],
-        ['kode' => 'BK-0105', 'judul' => 'Filosofi Teras', 'rak' => 'PH-104', 'isbn' => '978-6024125189', 'pengarang' => 'Henry Manampiring', 'edisi' => 'Filsafat Stoa Populer', 'penerbit' => 'Buku Kompas', 'kategori' => 'Filsafat', 'stok' => 6],
-        ['kode' => 'BK-0106', 'judul' => 'Laskar Pelangi', 'rak' => 'FK-012', 'isbn' => '978-9791227032', 'pengarang' => 'Andrea Hirata', 'edisi' => 'Koleksi Sastra Indonesia', 'penerbit' => 'Bentang Pustaka', 'kategori' => 'Sastra', 'stok' => 3],
-        ['kode' => 'BK-0107', 'judul' => 'Pengantar Psikologi Kognitif', 'rak' => 'PS-202', 'isbn' => '978-0132350884', 'pengarang' => 'Robert L. Solso', 'edisi' => 'Edisi Kedelapan', 'penerbit' => 'Erlangga', 'kategori' => 'Psikologi', 'stok' => 6],
-    ];
+    $buku = \Illuminate\Support\Facades\Schema::hasTable('buku')
+        ? \App\Models\Buku::query()->orderBy('judul_buku')->get()->map(fn ($book) => [
+            'kode' => 'BK-' . $book->id_buku,
+            'judul' => $book->judul_buku,
+            'rak' => $book->rak ?? '-',
+            'isbn' => $book->isbn ?? '-',
+            'pengarang' => $book->pengarang,
+            'edisi' => $book->edisi ?? '-',
+            'penerbit' => $book->penerbit ?? '-',
+            'kategori' => $book->kategori ?? 'Umum',
+            'stok' => (int) $book->stock,
+        ])->all()
+        : [];
 
     $log = [
-        ['oleh' => 'Petugas Budi Santoso', 'waktu' => '10 mnt lalu', 'isi' => 'Menambahkan +5 stok fisik pada buku', 'kode' => 'BK-0105', 'nama' => 'Filosofi Teras', 'ikon' => 'plus'],
-        ['oleh' => 'Petugas Budi Santoso', 'waktu' => '34 mnt lalu', 'isi' => 'Memperbarui nama pengarang & penerbit untuk buku', 'kode' => 'BK-0102', 'nama' => null, 'ikon' => 'pencil'],
-        ['oleh' => 'Petugas Siti Nurhaliza', 'waktu' => '2 jam lalu', 'isi' => 'Registrasi judul baru:', 'kode' => 'BK-0107', 'nama' => 'Pengantar Psikologi Kognitif', 'ikon' => 'book'],
+        ['oleh' => auth('petugas')->user()->nama_petugas ?? 'Petugas', 'waktu' => 'Baru', 'isi' => 'Data katalog buku dimuat dari tabel buku.', 'kode' => 'BK-DB', 'nama' => 'Sinkronisasi database', 'ikon' => 'book'],
     ];
 @endphp
 

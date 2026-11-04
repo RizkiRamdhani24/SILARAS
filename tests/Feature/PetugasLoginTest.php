@@ -64,12 +64,12 @@ class PetugasLoginTest extends TestCase
         $this->post(route('petugas.login'), [
             'email_petugas' => 'PETUGAS.UJIAN@EXAMPLE.TEST',
             'password' => 'Sandi-aman-123',
-        ])->assertRedirect(route('petugas.login-sukses'));
+        ])->assertRedirect(route('petugas.dashboard'));
 
         $this->assertAuthenticatedAs($petugas, 'petugas');
-        $this->get(route('petugas.login-sukses'))
+        $this->get(route('petugas.dashboard'))
             ->assertOk()
-            ->assertSeeText('Login sukses');
+            ->assertSeeText('Dashboard Petugas');
     }
 
     public function test_petugas_login_rejects_an_invalid_password(): void

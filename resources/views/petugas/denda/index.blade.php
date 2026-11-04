@@ -3,23 +3,40 @@
 @section('title', 'Denda')
 
 @php
-    $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
+    $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $namaPetugas = auth('petugas')->user()->nama_petugas ?? 'Eom Seonghyeon';
     $shiftPetugas = ucfirst(strtolower(auth('petugas')->user()->shift ?? 'pagi'));
-    $tarif = 2000; // TODO backend (Herlyan): tarif denda per hari dari konfigurasi
+    $tarif = 2000;
 
-    // TODO backend (Herlyan): ganti dengan data denda dari tabel pengembalian (denda, status_denda) + relasi.
-    $denda = [
-        ['id' => 'DND-2024-0089', 'ref' => 'KMB-2024-0412', 'nama' => 'Farhan Maulana', 'nim' => '21040055', 'prodi' => 'S1 Manajemen', 'buku' => 'Algoritma Pemrograman C++', 'tempo' => '18 Okt', 'telat' => 3, 'nominal' => 6000, 'lunas' => false, 'metode' => 'Menunggu kasir'],
-        ['id' => 'DND-2024-0088', 'ref' => 'KMB-2024-0411', 'nama' => 'Dimas Anggoro', 'nim' => '20010188', 'prodi' => 'Sistem Informasi', 'buku' => 'Clean Architecture & SOLID Design', 'tempo' => '16 Okt', 'telat' => 5, 'nominal' => 10000, 'lunas' => false, 'metode' => 'Menunggu kasir'],
-        ['id' => 'DND-2024-0087', 'ref' => 'KMB-2024-0408', 'nama' => 'Siti Rahmawati', 'nim' => '22050214', 'prodi' => 'Psikologi', 'buku' => 'Filosofi Teras & Stoikisme', 'tempo' => '19 Okt', 'telat' => 2, 'nominal' => 4000, 'lunas' => false, 'metode' => 'Menunggu kasir'],
-        ['id' => 'DND-2024-0086', 'ref' => 'KMB-2024-0410', 'nama' => 'Arya Pratama', 'nim' => '21040119', 'prodi' => 'TI - S1', 'buku' => 'Database System Concepts', 'tempo' => '15 Okt', 'telat' => 2, 'nominal' => 4000, 'lunas' => true, 'metode' => 'Tunai di loket • hari ini, 08:35 WIB'],
-        ['id' => 'DND-2024-0085', 'ref' => 'KMB-2024-0409', 'nama' => 'Indah Cahyani', 'nim' => '22010845', 'prodi' => 'Akuntansi', 'buku' => 'Komunikasi Data Jaringan', 'tempo' => '12 Okt', 'telat' => 5, 'nominal' => 10000, 'lunas' => true, 'metode' => 'QRIS statis loket • hari ini, 08:22 WIB'],
-    ];
+    $denda = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
+        ? \App\Models\Pengembalian::query()->with(['peminjaman.anggota', 'peminjaman.buku'])
+            ->orderByDesc('tgl_pengembalian')
+            ->get()
+            ->map(function ($return) {
+                $loan = $return->peminjaman;
+                $lateDays = 0;
+                if ($loan && $loan->tgl_jatuh_tempo && $return->tgl_pengembalian) {
+                    $lateDays = max(0, $return->tgl_pengembalian->diffInDays($loan->tgl_jatuh_tempo, false));
+                }
+
+                return [
+                    'id' => 'DND-' . $return->id_pengembalian,
+                    'ref' => 'KMB-' . $return->id_pengembalian,
+                    'nama' => $loan?->anggota?->nama_anggota ?? 'Anggota',
+                    'nim' => $loan?->anggota?->id_anggota ?? '-',
+                    'prodi' => 'Anggota',
+                    'buku' => $loan?->buku?->judul_buku ?? 'Judul tidak tersedia',
+                    'tempo' => $loan?->tgl_jatuh_tempo ? $loan->tgl_jatuh_tempo->format('d M') : '-',
+                    'telat' => $lateDays,
+                    'nominal' => (float) $return->denda,
+                    'lunas' => $return->status_denda === \App\Models\Pengembalian::DENDA_LUNAS,
+                    'metode' => $return->status_denda === \App\Models\Pengembalian::DENDA_LUNAS ? 'Lunas' : 'Menunggu kasir',
+                ];
+            })->all()
+        : [];
 
     $log = [
-        ['nama' => 'Arya Pratama', 'ref' => 'KMB-2024-0410 • Tunai loket', 'jam' => '08:35 WIB', 'nominal' => 4000, 'ikon' => 'check'],
-        ['nama' => 'Indah Cahyani', 'ref' => 'KMB-2024-0409 • QRIS statis', 'jam' => '08:22 WIB', 'nominal' => 10000, 'ikon' => 'qr'],
+        ['nama' => $namaPetugas, 'ref' => 'Sinkronisasi denda', 'jam' => 'Sekarang', 'nominal' => 0, 'ikon' => 'cash'],
     ];
 
     $alur = [

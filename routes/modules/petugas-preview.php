@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 |   file ini.
 */
 if (app()->environment('local')) {
-    Route::prefix('petugas')->name('petugas.preview.')->group(function () {
+    Route::prefix('dev/petugas')->name('petugas.preview.')->group(function () {
         Route::view('/dashboard', 'petugas.dashboard.index')->name('dashboard');
         Route::view('/buku', 'petugas.buku.index')->name('buku');
         Route::view('/anggota', 'petugas.anggota.index')->name('anggota');
