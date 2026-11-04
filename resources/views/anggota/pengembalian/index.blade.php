@@ -113,8 +113,8 @@
                                         <span class="return-page-badge {{ $isLate ? 'is-late' : 'is-active' }}">{{ ucfirst($loan->status_peminjaman ?: 'Status belum tersedia') }}</span>
                                     </div>
                                     <dl>
-                                        <div><dt>Tanggal pinjam</dt><dd>{{ $loan->tgl_peminjaman?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</dd></div>
-                                        <div><dt>Jatuh tempo</dt><dd>{{ $loan->tgl_jatuh_tempo?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</dd></div>
+                                        <div><dt>Tanggal pinjam</dt><dd>{{ $loan->tgl_peminjaman?->format('j M Y') ?? 'Belum tersedia' }}</dd></div>
+                                        <div><dt>Jatuh tempo</dt><dd>{{ $loan->tgl_jatuh_tempo?->format('j M Y') ?? 'Belum tersedia' }}</dd></div>
                                         <div><dt>Lokasi koleksi</dt><dd>{{ $book?->rak ? 'Rak ' . $book->rak : 'Belum tersedia' }}</dd></div>
                                     </dl>
                                     <div class="return-page-return-state">
@@ -220,7 +220,7 @@
                             <div class="return-page-history-mark"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span></div>
                             <div><h3>{{ $book?->judul_buku ?: 'Data buku belum tersedia' }}</h3><p>{{ $book?->pengarang ?: 'Pengarang belum tersedia' }} · #{{ $loan->getKey() ?? '—' }}</p></div>
                             <dl>
-                                <div><dt>Tanggal kembali</dt><dd>{{ $return->tgl_pengembalian?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</dd></div>
+                                <div><dt>Tanggal kembali</dt><dd>{{ $return->tgl_pengembalian?->format('j M Y') ?? 'Belum tersedia' }}</dd></div>
                                 <div><dt>Kondisi</dt><dd>{{ $return->kondisi_buku ? ucfirst($return->kondisi_buku) : 'Belum tersedia' }}</dd></div>
                                 <div><dt>Denda</dt><dd>{{ $return->denda !== null ? 'Rp ' . number_format((float) $return->denda, 0, ',', '.') : 'Belum tersedia' }}</dd></div>
                             </dl>

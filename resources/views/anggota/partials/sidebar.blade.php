@@ -12,9 +12,9 @@
     <nav aria-label="Navigasi anggota">
         <a class="{{ request()->routeIs('anggota.dashboard') ? 'is-active' : '' }}" href="{{ route('anggota.dashboard') }}" @if(request()->routeIs('anggota.dashboard')) aria-current="page" @endif><span class="material-symbols-rounded member-icon" aria-hidden="true">dashboard</span>Dashboard</a>
         <a class="{{ request()->routeIs('anggota.katalog', 'anggota.buku.*') ? 'is-active' : '' }}" href="{{ route('anggota.katalog') }}" @if(request()->routeIs('anggota.katalog', 'anggota.buku.*')) aria-current="page" @endif><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>Katalog Buku</a>
-        <span class="member-nav-disabled" aria-disabled="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">bookmarks</span><span>Peminjaman Buku</span><small>Belum tersedia</small></span>
-        <span class="member-nav-disabled" aria-disabled="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">history</span><span>Riwayat Peminjaman</span><small>Belum tersedia</small></span>
-        <span class="member-nav-disabled" aria-disabled="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">assignment_return</span><span>Pengembalian &amp; Denda</span><small>Belum tersedia</small></span>
+        <a class="{{ request()->routeIs('dev.anggota.peminjaman') ? 'is-active' : '' }}" href="{{ route('dev.anggota.peminjaman') }}" @if(request()->routeIs('dev.anggota.peminjaman')) aria-current="page" @endif><span class="material-symbols-rounded member-icon" aria-hidden="true">bookmarks</span>Peminjaman Buku</a>
+        <a class="{{ request()->routeIs('dev.anggota.riwayat') ? 'is-active' : '' }}" href="{{ route('dev.anggota.riwayat') }}" @if(request()->routeIs('dev.anggota.riwayat')) aria-current="page" @endif><span class="material-symbols-rounded member-icon" aria-hidden="true">history</span>Riwayat Peminjaman</a>
+        <a class="{{ request()->routeIs('dev.anggota.pengembalian') ? 'is-active' : '' }}" href="{{ route('dev.anggota.pengembalian') }}" @if(request()->routeIs('dev.anggota.pengembalian')) aria-current="page" @endif><span class="material-symbols-rounded member-icon" aria-hidden="true">assignment_return</span>Pengembalian &amp; Denda</a>
     </nav>
 
     <div class="member-sidebar-bottom">

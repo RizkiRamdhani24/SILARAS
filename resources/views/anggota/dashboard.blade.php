@@ -55,13 +55,13 @@
                 <p>Tidak ada jatuh tempo aktif</p>
             @elseif ($dueDays < 0)
                 <strong class="stat-alert">Terlambat</strong>
-                <p>{{ abs($dueDays) }} hari lewat jatuh tempo, {{ $nearestDueDate->locale('id')->translatedFormat('j F Y') }}</p>
+                <p>{{ abs($dueDays) }} hari lewat jatuh tempo, {{ $nearestDueDate->format('j F Y') }}</p>
             @elseif ($dueDays === 0)
                 <strong>Hari ini</strong>
-                <p>Jatuh tempo {{ $nearestDueDate->locale('id')->translatedFormat('j F Y') }}</p>
+                <p>Jatuh tempo {{ $nearestDueDate->format('j F Y') }}</p>
             @else
                 <strong>{{ $dueDays }} <small>Hari</small></strong>
-                <p>Jatuh tempo {{ $nearestDueDate->locale('id')->translatedFormat('j F Y') }}</p>
+                <p>Jatuh tempo {{ $nearestDueDate->format('j F Y') }}</p>
             @endif
         </article>
         <article class="stat-card">
@@ -110,8 +110,8 @@
                                 </div>
                                 <dl>
                                     <div><dt>Status</dt><dd>{{ ucfirst($loan->status_peminjaman) }}</dd></div>
-                                    <div><dt>Dipinjam</dt><dd>{{ $loan->tgl_peminjaman?->locale('id')->translatedFormat('j F Y') ?? 'Belum tersedia' }}</dd></div>
-                                    <div><dt>Jatuh tempo</dt><dd>@if ($loanDueDays === null) Belum tersedia @elseif ($loanDueDays < 0) Terlambat {{ abs($loanDueDays) }} hari @elseif ($loanDueDays === 0) Hari ini @else {{ $loan->tgl_jatuh_tempo->locale('id')->translatedFormat('j F Y') }} @endif</dd></div>
+                                    <div><dt>Dipinjam</dt><dd>{{ $loan->tgl_peminjaman?->format('j F Y') ?? 'Belum tersedia' }}</dd></div>
+                                    <div><dt>Jatuh tempo</dt><dd>@if ($loanDueDays === null) Belum tersedia @elseif ($loanDueDays < 0) Terlambat {{ abs($loanDueDays) }} hari @elseif ($loanDueDays === 0) Hari ini @else {{ $loan->tgl_jatuh_tempo->format('j F Y') }} @endif</dd></div>
                                 </dl>
                             </article>
                         @endforeach

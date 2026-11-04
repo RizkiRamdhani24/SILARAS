@@ -35,20 +35,18 @@ Route::controller(GoogleAuthController::class)->middleware('guest:anggota,petuga
     Route::get('/auth/google/callback', 'callback')->name('auth.google.callback');
 });
 
-// TODO: Replace this placeholder with the member destination page.
-Route::get('/anggota/daftar-sukses', fn() => 'Daftar sukses')
+Route::get('/anggota/daftar-sukses', fn() => redirect()->route('anggota.dashboard'))
     ->name('anggota.daftar-sukses');
 
-// TODO: Replace this placeholder with the member destination page.
-Route::get('/anggota/login-sukses', fn() => 'Login sukses')
-    ->name('anggota.login-sukses');
+Route::get('/anggota/login-sukses', function () {
+    return response('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Login sukses</title><script>setTimeout(function(){window.location.href = "' . route('anggota.dashboard') . '";}, 200);</script></head><body><p>Login sukses</p></body></html>');
+})->name('anggota.login-sukses');
 
-// TODO: Replace this placeholder with the staff destination page.
-Route::get('/petugas/login-sukses', fn() => 'Login sukses')
-    ->name('petugas.login-sukses');
+Route::get('/petugas/login-sukses', function () {
+    return response('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Login sukses</title><script>setTimeout(function(){window.location.href = "' . route('petugas.dashboard') . '";}, 200);</script></head><body><p>Login sukses</p></body></html>');
+})->name('petugas.login-sukses');
 
-// TODO: Replace this placeholder with the staff destination page.
-Route::get('/petugas/daftar-sukses', fn() => 'Daftar sukses')
+Route::get('/petugas/daftar-sukses', fn() => redirect()->route('petugas.dashboard'))
     ->name('petugas.daftar-sukses');
 
 /*
@@ -58,6 +56,7 @@ Route::get('/petugas/daftar-sukses', fn() => 'Daftar sukses')
 */
 Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(function () {
     Route::get('/dashboard', function () {
+        /** @var \App\Models\Anggota|null $member */
         $member = auth('anggota')->user();
         $loans = collect();
 
@@ -143,8 +142,13 @@ Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(fu
 
 
 Route::prefix('petugas')->name('petugas.')->middleware('role.petugas')->group(function () {
-    Route::get('/dashboard', fn() => 'Dashboard Petugas: ' . auth('petugas')->user()->nama_petugas)
-        ->name('dashboard');
+    Route::get('/dashboard', function () {
+        return view('petugas.dashboard.index');
+    })->name('dashboard');
+
+    Route::get('/', function () {
+        return redirect()->route('petugas.dashboard');
+    });
 });
 
 /*

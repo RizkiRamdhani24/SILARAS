@@ -10,7 +10,7 @@ class Buku extends Model
     protected $table = 'buku';
     protected $primaryKey = 'id_buku';
 
-    protected $fillable = ['judul_buku', 'penerbit', 'pengarang', 'stock', 'kategori'];
+    protected $fillable = ['judul_buku', 'penerbit', 'pengarang', 'stock', 'kategori', 'isbn', 'rak', 'cover'];
 
     protected function casts(): array
     {

@@ -11,7 +11,7 @@
         </button>
         <p class="member-date">
             <span class="material-symbols-rounded member-icon" aria-hidden="true">calendar_month</span>
-            {{ now()->locale('id')->translatedFormat('l, j F Y') }}
+            {{ now()->format('l, j F Y') }}
         </p>
         <form class="member-search" action="{{ route('anggota.katalog') }}" method="GET" role="search" data-member-search>
             <span class="material-symbols-rounded member-icon" aria-hidden="true">search</span>

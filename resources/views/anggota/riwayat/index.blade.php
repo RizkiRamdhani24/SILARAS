@@ -120,9 +120,9 @@
                                         <strong>{{ $book?->judul_buku ?: 'Data buku belum tersedia' }}</strong>
                                         <small>{{ $book?->pengarang ?: 'Pengarang belum tersedia' }}@if ($book?->rak) · Rak {{ $book->rak }}@endif</small>
                                     </td>
-                                    <td>{{ $loan->tgl_peminjaman?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</td>
-                                    <td>{{ $loan->tgl_jatuh_tempo?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</td>
-                                    <td>{{ $return?->tgl_pengembalian?->locale('id')->translatedFormat('j M Y') ?? 'Belum tersedia' }}</td>
+                                    <td>{{ $loan->tgl_peminjaman?->format('j M Y') ?? 'Belum tersedia' }}</td>
+                                    <td>{{ $loan->tgl_jatuh_tempo?->format('j M Y') ?? 'Belum tersedia' }}</td>
+                                    <td>{{ $return?->tgl_pengembalian?->format('j M Y') ?? 'Belum tersedia' }}</td>
                                     <td><span class="history-page-status {{ $statusClass }}"><i></i>{{ ucfirst($loan->status_peminjaman ?: 'belum tersedia') }}</span></td>
                                     <td>
                                         @if ($return?->denda !== null)
