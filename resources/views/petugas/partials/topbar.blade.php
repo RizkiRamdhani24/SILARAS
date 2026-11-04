@@ -7,7 +7,7 @@
 
     <p class="flex items-center gap-2 text-sm font-medium">
         @include('petugas.partials.icon', ['name' => 'calendar', 'class' => 'size-5 text-blue-700'])
-        <span>{{ now()->format('l, j F Y') }}</span>
+        <span>{{ now()->translatedFormat('l, j F Y') }}</span>
     </p>
 
     <div class="ml-auto flex items-center gap-3">

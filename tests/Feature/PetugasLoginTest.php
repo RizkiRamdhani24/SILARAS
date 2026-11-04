@@ -30,6 +30,39 @@ class PetugasLoginTest extends TestCase
             $table->rememberToken();
             $table->timestamps();
         });
+
+        // Dashboard petugas kini membaca data asli, jadi tabel berikut harus ada.
+        Schema::create('buku', function (Blueprint $table) {
+            $table->id('id_buku');
+            $table->string('judul_buku');
+            $table->string('pengarang')->nullable();
+            $table->string('kategori')->nullable();
+            $table->unsignedInteger('stock')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create('peminjaman', function (Blueprint $table) {
+            $table->id('id_peminjaman');
+            $table->unsignedBigInteger('id_anggota');
+            $table->unsignedBigInteger('id_buku');
+            $table->unsignedBigInteger('id_petugas')->nullable();
+            $table->date('tgl_peminjaman')->nullable();
+            $table->date('tgl_jatuh_tempo')->nullable();
+            $table->string('status_peminjaman');
+            $table->timestamps();
+        });
+
+        Schema::create('pengembalian', function (Blueprint $table) {
+            $table->id('id_pengembalian');
+            $table->unsignedBigInteger('id_peminjaman');
+            $table->unsignedBigInteger('id_petugas')->nullable();
+            $table->date('tgl_pengembalian')->nullable();
+            $table->decimal('denda', 10, 2)->default(0);
+            $table->string('kondisi_buku')->nullable();
+            $table->string('status_pengembalian')->nullable();
+            $table->string('status_denda')->nullable();
+            $table->timestamps();
+        });
     }
 
     protected function tearDown(): void
