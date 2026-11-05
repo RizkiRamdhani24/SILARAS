@@ -8,17 +8,40 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Buku extends Model
 {
     protected $table = 'buku';
+
     protected $primaryKey = 'id_buku';
 
-    protected $fillable = ['judul_buku', 'penerbit', 'pengarang', 'stock', 'kategori', 'isbn', 'rak', 'cover'];
+    public function getRouteKeyName(): string
+    {
+        return 'id_buku';
+    }
+
+    protected $fillable = [
+        'judul_buku',
+        'penerbit',
+        'pengarang',
+        'stock',
+        'kategori',
+        'isbn',
+        'rak',
+        'cover',
+        'pdf',
+    ];
 
     protected function casts(): array
     {
-        return ['stock' => 'integer'];
+        return [
+            'stock' => 'integer',
+        ];
     }
 
     public function peminjaman(): HasMany
     {
-        return $this->hasMany(Peminjaman::class, 'id_buku', 'id_buku');
+        return $this->hasMany(
+            Peminjaman::class,
+            'id_buku',
+            'id_buku'
+        );
     }
+
 }

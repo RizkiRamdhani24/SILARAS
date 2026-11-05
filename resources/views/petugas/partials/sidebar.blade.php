@@ -3,7 +3,7 @@
         ['label' => 'Dashboard', 'path' => 'petugas/dashboard', 'icon' => 'dashboard', 'badge' => null],
         ['label' => 'Kelola Buku', 'path' => 'petugas/buku', 'icon' => 'book', 'badge' => null],
         ['label' => 'Kelola Anggota', 'path' => 'petugas/anggota', 'icon' => 'users', 'badge' => null],
-        ['label' => 'Peminjaman', 'path' => 'petugas/peminjaman', 'icon' => 'borrow', 'badge' => $antreanPinjam],
+        ['label' => 'Peminjaman', 'path' => 'petugas/peminjaman', 'icon' => 'borrow', 'badge' => null],
         ['label' => 'Pengembalian', 'path' => 'petugas/pengembalian', 'icon' => 'return', 'badge' => null],
         ['label' => 'Denda', 'path' => 'petugas/denda', 'icon' => 'cash', 'badge' => null],
         ['label' => 'Riwayat/Transaksi', 'path' => 'petugas/transaksi', 'icon' => 'history', 'badge' => null],
