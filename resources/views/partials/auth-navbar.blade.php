@@ -10,6 +10,7 @@
         </span>
     </a>
 
+        
     <div class="silaras-auth-navbar-actions">
         <nav class="silaras-auth-nav-links" aria-label="Navigasi utama">
             <a href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Beranda</a>
@@ -26,10 +27,23 @@
 
         @if (auth('anggota')->check())
             <a class="silaras-auth-nav-login" href="{{ route('anggota.dashboard') }}">Dashboard</a>
+
+            <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                @csrf
+                <button type="submit" class="silaras-auth-nav-login">Logout</button>
+            </form>
+
         @elseif (auth('petugas')->check())
             <a class="silaras-auth-nav-login" href="{{ route('petugas.dashboard') }}">Dashboard</a>
+
+            <form action="{{ route('logout') }}" method="POST" style="display: inline;">
+                @csrf
+                <button type="submit" class="silaras-auth-nav-login">Logout</button>
+            </form>
+
         @else
             <a class="silaras-auth-nav-login" href="{{ route('login') }}">Login</a>
         @endif
     </div>
+
 </header>

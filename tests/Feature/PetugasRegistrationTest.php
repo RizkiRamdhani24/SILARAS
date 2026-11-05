@@ -54,7 +54,7 @@ class PetugasRegistrationTest extends TestCase
             'nama_petugas' => 'Petugas Uji',
             'email_petugas' => 'petugas.ujian@example.test',
             'password' => 'Sandi-aman-123',
-        ])->assertRedirect(route('petugas.daftar-sukses'));
+        ])->assertRedirect(route('petugas.dashboard'));
 
         $petugas = Petugas::where('email_petugas', 'petugas.ujian@example.test')->firstOrFail();
 

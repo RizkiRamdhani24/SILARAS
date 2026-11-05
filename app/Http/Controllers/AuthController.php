@@ -46,7 +46,7 @@ class AuthController extends Controller
             Auth::guard('anggota')->login($anggota, $request->boolean('remember'));
             $request->session()->regenerate();
 
-            return redirect()->route('home');
+            return redirect()->route('anggota.dashboard');
         }
 
         return back()->withErrors(['email' => 'Email atau kata sandi salah.'])->onlyInput('email');
@@ -114,7 +114,7 @@ class AuthController extends Controller
         Auth::guard('anggota')->login($anggota);
         $request->session()->regenerate();
 
-        return redirect()->route('home');
+        return redirect()->route('anggota.dashboard');
     }
 
     public function registerPetugas(Request $request)
