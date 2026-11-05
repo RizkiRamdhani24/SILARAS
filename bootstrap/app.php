@@ -1,3 +1,4 @@
+
 <?php
 
 use App\Http\Middleware\EnsureAnggota;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__ . '/../routes/web.php',
+        api: __DIR__ . '/../routes/api.php',
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
@@ -19,7 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.anggota' => EnsureAnggota::class,
             'role.petugas' => EnsurePetugas::class,
         ]);
+
         $middleware->redirectGuestsTo(fn() => route('login'));
+
         $middleware->redirectUsersTo(function (Request $request) {
             if (Auth::guard('petugas')->check()) {
                 return route('petugas.dashboard');

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,6 +29,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::get('/petugas/register', 'showPetugasRegister')->middleware('guest:anggota,petugas')->name('petugas.register');
     Route::post('/petugas/register', 'registerPetugas');
 
+    // Logout anggota dan petugas
     Route::post('/logout', 'logout')->name('logout');
 });
 
@@ -51,22 +54,23 @@ Route::get('/petugas/daftar-sukses', fn() => redirect()->route('petugas.dashboar
 
 /*
 |--------------------------------------------------------------------------
-| Dashboard sementara (diproteksi per peran di Step 5)
+| Dashboard dan katalog anggota
 |--------------------------------------------------------------------------
 */
 Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(function () {
+
     Route::get('/dashboard', function () {
-        /** @var \App\Models\Anggota|null $member */
+        /** @var \App\Models\Anggota $member */
         $member = auth('anggota')->user();
+
         $loans = collect();
 
         if (Schema::hasTable('peminjaman') && Schema::hasTable('buku')) {
-            $loans = $member->peminjaman()
+            $loans = Peminjaman::query()
                 ->with(['buku', 'pengembalian'])
+                ->where('id_anggota', $member->id_anggota)
                 ->orderByDesc('tgl_peminjaman')
                 ->get();
-        } elseif ($member->relationLoaded('peminjaman')) {
-            $loans = $member->peminjaman;
         }
 
         $activeLoans = $loans->whereIn('status_peminjaman', [
@@ -87,6 +91,7 @@ Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(fu
         $search = trim((string) $request->query('q', ''));
         $category = trim((string) $request->query('kategori', ''));
         $availability = trim((string) $request->query('ketersediaan', ''));
+
         $query = Buku::query();
 
         if ($search !== '') {
@@ -109,23 +114,67 @@ Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(fu
             $query->where('stock', 0);
         }
 
-        $books = $query->orderByDesc('stock')->orderBy('judul_buku')->paginate(8)->withQueryString();
+        $books = $query->orderByDesc('stock')
+            ->orderBy('judul_buku')
+            ->paginate(8)
+            ->withQueryString();
 
         return view('anggota.katalog.index', [
             'member' => auth('anggota')->user(),
             'books' => $books,
             'bookCount' => Buku::query()->count(),
-            'categories' => Buku::query()->whereNotNull('kategori')->where('kategori', '!=', '')->distinct()->orderBy('kategori')->pluck('kategori'),
+            'categories' => Buku::query()
+                ->whereNotNull('kategori')
+                ->where('kategori', '!=', '')
+                ->distinct()
+                ->orderBy('kategori')
+                ->pluck('kategori'),
             'search' => $search,
             'selectedCategory' => $category,
             'selectedAvailability' => $availability,
         ]);
     })->name('katalog');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Download PDF buku untuk anggota login
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/katalog/{book}/download', function (int $book) {
+        $selectedBook = Buku::query()->findOrFail($book);
+
+        if (empty($selectedBook->pdf)) {
+            abort(404, 'File PDF buku tidak tersedia.');
+        }
+
+        $storage = Storage::disk('public');
+
+        if (! $storage->exists($selectedBook->pdf)) {
+            abort(404, 'File PDF buku tidak ditemukan.');
+        }
+
+        $filename = Str::slug($selectedBook->judul_buku) . '.pdf';
+
+        return response()->download(
+            $storage->path($selectedBook->pdf),
+            $filename,
+            ['Content-Type' => 'application/pdf']
+        );
+    })->whereNumber('book')->name('buku.download');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Detail buku anggota
+    |--------------------------------------------------------------------------
+    */
     Route::get('/katalog/{book}', function (int $book) {
         $selectedBook = Buku::query()->findOrFail($book);
+
         $relatedBooks = Buku::query()
-            ->when($selectedBook->kategori, fn (Builder $books) => $books->where('kategori', $selectedBook->kategori))
+            ->when(
+                $selectedBook->kategori,
+                fn (Builder $books) => $books->where('kategori', $selectedBook->kategori)
+            )
             ->whereKeyNot($selectedBook->getKey())
             ->orderByDesc('stock')
             ->orderBy('judul_buku')
@@ -140,8 +189,13 @@ Route::prefix('anggota')->name('anggota.')->middleware('role.anggota')->group(fu
     })->whereNumber('book')->name('buku.show');
 });
 
-
+/*
+|--------------------------------------------------------------------------
+| Halaman petugas
+|--------------------------------------------------------------------------
+*/
 Route::prefix('petugas')->name('petugas.')->middleware('role.petugas')->group(function () {
+
     Route::get('/dashboard', function () {
         return view('petugas.dashboard.index');
     })->name('dashboard');
@@ -177,13 +231,11 @@ Route::prefix('petugas')->name('petugas.')->middleware('role.petugas')->group(fu
 
 /*
 |--------------------------------------------------------------------------
-| Preview routes untuk development frontend anggota
+| Preview routes development frontend anggota
 |--------------------------------------------------------------------------
-| URL: /dev/anggota/{peminjaman,riwayat,pengembalian}
-| Tujuan: Preview UI tanpa data backend
-| Catatan: View menggunakan fallback auth('anggota')->user() dan isset() checks
 */
 Route::prefix('dev/anggota')->name('dev.anggota.')->group(function () {
+
     Route::get('/peminjaman', function () {
         return view('anggota.peminjaman.index', [
             'member' => auth('anggota')->user(),
