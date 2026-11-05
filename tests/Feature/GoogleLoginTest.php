@@ -71,7 +71,7 @@ class GoogleLoginTest extends TestCase
         ]));
 
         $this->get(route('auth.google.callback'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('anggota.dashboard'));
 
         $anggota = Anggota::where('email_anggota', 'anggota.baru@example.test')->firstOrFail();
         $this->assertSame('Anggota Google', $anggota->nama_anggota);
@@ -92,7 +92,7 @@ class GoogleLoginTest extends TestCase
         ]));
 
         $this->get(route('auth.google.callback'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('anggota.dashboard'));
 
         $this->assertAuthenticatedAs($anggota, 'anggota');
         $this->assertDatabaseCount('anggota', 1);

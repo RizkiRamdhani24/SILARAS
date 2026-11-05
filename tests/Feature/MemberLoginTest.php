@@ -56,13 +56,12 @@ class MemberLoginTest extends TestCase
         $this->post(route('login'), [
             'email' => 'ANGGOTA.UJIAN@EXAMPLE.TEST',
             'password' => 'Sandi-aman-123',
-        ])->assertRedirect(route('home'));
+        ])->assertRedirect(route('anggota.dashboard'));
 
         $this->assertAuthenticatedAs($anggota, 'anggota');
-        $this->get(route('home'))
+        $this->get(route('anggota.dashboard'))
             ->assertOk()
-            ->assertSeeText('Dashboard')
-            ->assertSeeText('Akses Pustaka Akademik Pintar');
+            ->assertSeeText('Dashboard Anggota');
     }
 
     public function test_member_sign_in_rejects_an_invalid_password(): void

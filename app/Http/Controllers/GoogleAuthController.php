@@ -70,6 +70,6 @@ class GoogleAuthController extends Controller
         Auth::guard('anggota')->login($anggota);
         $request->session()->regenerate();
 
-        return redirect()->route('home');
+        return redirect()->route('anggota.dashboard');
     }
 }

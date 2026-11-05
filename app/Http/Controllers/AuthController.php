@@ -114,7 +114,7 @@ class AuthController extends Controller
         Auth::guard('anggota')->login($anggota);
         $request->session()->regenerate();
 
-        return redirect()->route('anggota.daftar-sukses');
+        return redirect()->route('anggota.dashboard');
     }
 
     public function registerPetugas(Request $request)
