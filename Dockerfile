@@ -1,4 +1,7 @@
-# Stage 1: Build frontend assets
+
+# ==========================================
+# STAGE 1: BUILD FRONTEND ASSETS
+# ==========================================
 FROM node:22-alpine AS frontend
 
 WORKDIR /app
@@ -10,29 +13,46 @@ COPY . .
 RUN npm run build
 
 
-# Stage 2: Laravel application
+# ==========================================
+# STAGE 2: LARAVEL + APACHE
+# ==========================================
 FROM php:8.2-apache
 
+# Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
     unzip \
     && docker-php-ext-install \
-    pdo_pgsql \
-    pgsql \
-    bcmath \
-    zip \
-    opcache \
-    && rm -f /etc/apache2/mods-enabled/mpm_event.* \
-             /etc/apache2/mods-enabled/mpm_worker.* \
-    && a2enmod mpm_prefork rewrite headers \
+        pdo_pgsql \
+        pgsql \
+        bcmath \
+        zip \
+        opcache \
+    \
+    # Remove ALL enabled Apache MPM modules
+    && rm -f /etc/apache2/mods-enabled/mpm_*.load \
+             /etc/apache2/mods-enabled/mpm_*.conf \
+    \
+    # Enable exactly ONE MPM: prefork
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite headers \
+    \
+    # Verify active MPM
+    && apache2ctl -M | grep mpm \
+    \
     && rm -rf /var/lib/apt/lists/*
 
+
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Install Laravel dependencies
+
+# ==========================================
+# INSTALL LARAVEL DEPENDENCIES
+# ==========================================
 COPY composer.json composer.lock ./
 
 RUN composer install \
@@ -42,32 +62,56 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-# Copy Laravel source
+
+# ==========================================
+# COPY APPLICATION SOURCE
+# ==========================================
 COPY . .
 
-# Copy production frontend assets
+
+# Copy built frontend assets
 COPY --from=frontend /app/public/build ./public/build
 
-# Configure Apache to serve Laravel public directory
-RUN sed -ri 's!/var/www/html!/var/www/html/public!g' \
-    /etc/apache2/sites-available/000-default.conf \
-    && sed -ri 's/Listen 80/Listen 10000/' /etc/apache2/ports.conf \
-    && sed -ri 's/<VirtualHost \*:80>/<VirtualHost *:10000>/' \
-    /etc/apache2/sites-available/000-default.conf \
-    && sed -ri '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' \
-    /etc/apache2/apache2.conf
 
-# Laravel permissions and package discovery
-RUN mkdir -p storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache \
+# ==========================================
+# APACHE CONFIGURATION
+# ==========================================
+RUN sed -ri 's!/var/www/html!/var/www/html/public!g' \
+        /etc/apache2/sites-available/000-default.conf \
+    \
+    && sed -ri 's/AllowOverride None/AllowOverride All/' \
+        /etc/apache2/apache2.conf \
+    \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+
+# ==========================================
+# LARAVEL PERMISSIONS & OPTIMIZATION
+# ==========================================
+RUN mkdir -p \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    \
     && chown -R www-data:www-data storage bootstrap/cache \
-    && composer dump-autoload --no-dev --optimize \
+    \
+    && composer dump-autoload \
+        --no-dev \
+        --optimize \
+    \
     && php artisan package:discover --ansi
 
+
+# ==========================================
+# RAILWAY PORT
+# ==========================================
 EXPOSE 10000
 
-# Pakai port dari platform (Railway/Render) kalau ada, default 10000
-CMD ["sh", "-c", "PORT=${PORT:-10000}; sed -ri \"s/Listen [0-9]+/Listen ${PORT}/\" /etc/apache2/ports.conf; sed -ri \"s/<VirtualHost \\*:[0-9]+>/<VirtualHost *:${PORT}>/\" /etc/apache2/sites-available/000-default.conf; exec apache2-foreground"]
+CMD ["sh", "-c", "\
+    PORT=${PORT:-10000}; \
+    sed -ri 's/Listen [0-9]+/Listen '${PORT}'/' /etc/apache2/ports.conf; \
+    sed -ri 's/<VirtualHost \\*:[0-9]+>/<VirtualHost *:'${PORT}'>' /etc/apache2/sites-available/000-default.conf; \
+    exec apache2-foreground \
+"]
