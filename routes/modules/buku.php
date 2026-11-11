@@ -3,14 +3,24 @@
 use App\Http\Controllers\Buku\BukuController;
 use Illuminate\Support\Facades\Route;
 
+Route::middleware('role.anggota')
+    ->get('/anggota/buku/{id}/pdf', [BukuController::class, 'bacaPdf'])
+    ->whereNumber('id')
+    ->name('anggota.buku.pdf');
+
+Route::middleware('role.anggota')
+    ->get('/anggota/buku/{id}/pdf/download', [BukuController::class, 'unduhPdf'])
+    ->whereNumber('id')
+    ->name('anggota.buku.pdf.download');
+
 // ROUTE PETUGAS
 Route::prefix('petugas')
     ->name('petugas.')
     ->middleware('role.petugas')
     ->group(function () {
 
-        Route::get('/buku', [BukuController::class, 'index'])
-            ->name('buku.index');
+        Route::get('/buku', [BukuController::class, 'halaman'])
+            ->name('buku');
 
         Route::post('/buku', [BukuController::class, 'store'])
             ->name('buku.store');
@@ -30,4 +40,3 @@ Route::prefix('petugas')
         Route::delete('/kelola-buku/{id}', [BukuController::class, 'destroy'])
             ->name('kelola-buku.destroy');
     });
-

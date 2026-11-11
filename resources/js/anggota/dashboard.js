@@ -1,3 +1,5 @@
+import '../ui-dialogs';
+
 // =========================================
 // MODULE: DOM references
 // Purpose: Resolve shared controls used by member pages.
@@ -119,7 +121,6 @@ if (!desktopMediaQuery.matches) {
 const loanForm = document.querySelector('[data-loan-request-form]');
 const loanDate = document.querySelector('[data-loan-date]');
 const loanFeedback = document.querySelector('[data-loan-feedback]');
-
 const validateLoanPlan = () => {
     if (!(loanDate instanceof HTMLInputElement) || !(loanFeedback instanceof HTMLElement)) {
         return;
@@ -137,3 +138,51 @@ const validateLoanPlan = () => {
 
 loanForm?.addEventListener('input', validateLoanPlan);
 loanForm?.addEventListener('change', validateLoanPlan);
+
+const paymentProofInput = document.querySelector('[data-payment-proof]');
+const proofFileName = document.querySelector('[data-proof-filename]');
+const proofPreview = document.querySelector('[data-proof-preview]');
+const proofError = document.querySelector('[data-proof-error]');
+let proofPreviewUrl = null;
+
+paymentProofInput?.addEventListener('change', () => {
+    if (!(paymentProofInput instanceof HTMLInputElement)) return;
+
+    const file = paymentProofInput.files?.[0];
+    paymentProofInput.setCustomValidity('');
+    if (proofError instanceof HTMLElement) proofError.textContent = '';
+    if (proofPreview instanceof HTMLImageElement) {
+        proofPreview.hidden = true;
+        proofPreview.removeAttribute('src');
+    }
+    if (proofPreviewUrl) {
+        URL.revokeObjectURL(proofPreviewUrl);
+        proofPreviewUrl = null;
+    }
+    if (!file) {
+        if (proofFileName instanceof HTMLElement) proofFileName.textContent = 'Belum ada file dipilih';
+        return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png'];
+    let error = '';
+    if (!allowedTypes.includes(file.type)) {
+        error = 'Pilih file gambar JPG, JPEG, atau PNG.';
+    } else if (file.size > 2 * 1024 * 1024) {
+        error = 'Ukuran file maksimal 2 MB.';
+    }
+
+    if (proofFileName instanceof HTMLElement) proofFileName.textContent = file.name;
+    if (error) {
+        paymentProofInput.setCustomValidity(error);
+        if (proofError instanceof HTMLElement) proofError.textContent = error;
+        if (proofPreview instanceof HTMLImageElement) proofPreview.hidden = true;
+        return;
+    }
+
+    if (proofPreview instanceof HTMLImageElement) {
+        proofPreviewUrl = URL.createObjectURL(file);
+        proofPreview.src = proofPreviewUrl;
+        proofPreview.hidden = false;
+    }
+});

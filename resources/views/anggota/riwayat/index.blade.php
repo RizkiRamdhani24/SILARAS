@@ -18,21 +18,21 @@
             )
             : collect();
         $completeReturnData = $returnedLoans->filter(
-            fn ($loan) => $loan->relationLoaded('pengembalian')
-                && $loan->pengembalian?->tgl_pengembalian
+            fn ($loan) => $loan->relationLoaded('pengembalianAktif')
+                && $loan->pengembalianAktif?->tgl_pengembalian
                 && $loan->tgl_jatuh_tempo
         );
         $onTimeCount = $completeReturnData->filter(
-            fn ($loan) => $loan->pengembalian->tgl_pengembalian->lte($loan->tgl_jatuh_tempo)
+            fn ($loan) => $loan->pengembalianAktif->tgl_pengembalian->lte($loan->tgl_jatuh_tempo)
         )->count();
         $punctuality = $completeReturnData->isNotEmpty()
             ? round(($onTimeCount / $completeReturnData->count()) * 100)
             : null;
         $fineDataAvailable = $historyProvided
             && $historyLoans->isNotEmpty()
-            && $historyLoans->every(fn ($loan) => $loan->relationLoaded('pengembalian'));
+            && $historyLoans->every(fn ($loan) => $loan->relationLoaded('pengembalianAktif'));
         $unpaidFine = $fineDataAvailable
-            ? $historyLoans->pluck('pengembalian')->filter()
+            ? $historyLoans->pluck('pengembalianAktif')->filter()
                 ->where('status_denda', \App\Models\Pengembalian::DENDA_BELUM_DIBAYAR)
                 ->sum(fn ($return) => (float) $return->denda)
             : null;
@@ -107,7 +107,7 @@
                             @foreach ($historyLoans as $loan)
                                 @php
                                     $book = $loan->relationLoaded('buku') ? $loan->buku : null;
-                                    $return = $loan->relationLoaded('pengembalian') ? $loan->pengembalian : null;
+                                    $return = $loan->relationLoaded('pengembalianAktif') ? $loan->pengembalianAktif : null;
                                     $isLate = $loan->status_peminjaman === \App\Models\Peminjaman::STATUS_TERLAMBAT
                                         || ($return?->tgl_pengembalian && $loan->tgl_jatuh_tempo && $return->tgl_pengembalian->gt($loan->tgl_jatuh_tempo));
                                     $statusClass = $isLate
@@ -133,6 +133,17 @@
                                         @endif
                                     </td>
                                 </tr>
+                                @foreach ($loan->pengembalians->where('status_pengembalian', \App\Models\Pengembalian::STATUS_DIBATALKAN) as $cancelledReturn)
+                                    <tr>
+                                        <td><code>#{{ $loan->getKey() }}</code></td>
+                                        <td><strong>{{ $book?->judul_buku ?: 'Data buku belum tersedia' }}</strong><small>Pengajuan pengembalian dibatalkan</small></td>
+                                        <td>{{ $loan->tgl_peminjaman?->format('j M Y') ?? 'Belum tersedia' }}</td>
+                                        <td>{{ $loan->tgl_jatuh_tempo?->format('j M Y') ?? 'Belum tersedia' }}</td>
+                                        <td>{{ $cancelledReturn->created_at?->format('j M Y H:i') ?? 'Belum tersedia' }}</td>
+                                        <td><span class="history-page-status"><i></i>Pengembalian dibatalkan</span></td>
+                                        <td>—</td>
+                                    </tr>
+                                @endforeach
                             @endforeach
                         </tbody>
                     </table>

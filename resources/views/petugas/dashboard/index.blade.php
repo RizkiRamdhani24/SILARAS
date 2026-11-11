@@ -5,7 +5,6 @@
 @php
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
     $namaPetugas = auth('petugas')->user()->nama_petugas ?? 'Eom Seonghyeon';
-    $shiftPetugas = ucfirst(strtolower(auth('petugas')->user()->shift ?? 'pagi'));
 
     $pendingLoans = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
         ? \App\Models\Peminjaman::query()->where('status_peminjaman', \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI)->count()
@@ -77,9 +76,6 @@
             <div class="max-w-2xl">
                 <div class="flex flex-wrap gap-2 text-xs font-semibold">
                     <span class="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1"><span class="size-2 rounded-full bg-emerald-300"></span>Petugas aktif</span>
-                    <span class="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1">
-                        @include('petugas.partials.icon', ['name' => 'clock', 'class' => 'size-3.5']) Shift: {{ $shiftPetugas }}
-                    </span>
                 </div>
                 <h1 id="judul-sambutan" class="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">Selamat bertugas, {{ $namaPetugas }}</h1>
                 <p class="mt-2 text-sm text-blue-50">Kelola transaksi sirkulasi sesuai diagram alir analisis sistem: validasi kuota &amp; tunggakan anggota, pengurangan stok buku otomatis, serta verifikasi denda pengembalian buku.</p>
@@ -246,7 +242,7 @@
             </section>
         </div>
 
-        <aside class="min-w-0 space-y-6" aria-label="Stok kritis, shift, dan log">
+        <aside class="min-w-0 space-y-6" aria-label="Stok kritis dan log aktivitas">
             <section class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100" aria-labelledby="judul-kritis">
                 <div class="flex items-center justify-between gap-2">
                     <h2 id="judul-kritis" class="flex items-center gap-2 text-base font-extrabold">
@@ -271,24 +267,6 @@
                     @endforeach
                 </ul>
                 <a href="{{ url('/petugas/buku') }}" class="mt-4 block text-center text-xs font-semibold text-blue-700 hover:underline">Buka tabel lengkap kelola buku (UC-05) →</a>
-            </section>
-
-            <section class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100" aria-labelledby="judul-shift">
-                <div class="flex items-center justify-between gap-2">
-                    <h2 id="judul-shift" class="flex items-center gap-2 text-base font-extrabold">
-                        @include('petugas.partials.icon', ['name' => 'id-card', 'class' => 'size-5 text-blue-700']) Shift &amp; Petugas Bertugas
-                    </h2>
-                </div>
-                <div class="mt-4 space-y-3 text-sm">
-                    <div class="rounded-xl bg-[#EEF3FC] p-3">
-                        <p class="flex items-center justify-between font-semibold"><span class="flex items-center gap-2"><span class="size-2 rounded-full bg-emerald-500"></span>Shift Pagi (08:00 - 15:30)</span><span class="text-xs font-bold text-blue-700">Aktif</span></p>
-                        <p class="mt-1 text-xs text-slate-600">{{ $namaPetugas }} • Martin Edwards Park</p>
-                    </div>
-                    <div class="rounded-xl bg-[#F3F5FA] p-3">
-                        <p class="flex items-center justify-between font-semibold"><span class="flex items-center gap-2"><span class="size-2 rounded-full bg-slate-400"></span>Shift Sore (13:30 - 20:00)</span><span class="text-xs text-slate-500">Mendatang</span></p>
-                        <p class="mt-1 text-xs text-slate-600">Anh Keonho • Kim Juhoon</p>
-                    </div>
-                </div>
             </section>
 
             <section class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100" aria-labelledby="judul-aktivitas">

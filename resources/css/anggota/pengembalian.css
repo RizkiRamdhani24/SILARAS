@@ -13,7 +13,7 @@
     align-items: center;
     gap: 7px;
     color: #1d4ed8;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: .04em;
 }
@@ -32,7 +32,7 @@
     max-width: 680px;
     margin: 0;
     color: #64748b;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .return-page-member-status {
@@ -46,7 +46,7 @@
     border-radius: 999px;
     background: #ecfdf5;
     color: #047857;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 .return-page-member-status .member-icon {
@@ -76,7 +76,7 @@
     justify-content: space-between;
     gap: 10px;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     letter-spacing: .04em;
 }
 .return-page-metric header b {
@@ -108,7 +108,7 @@
     font-weight: 500;
 }
 .return-page-metric > strong small {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 400;
 }
 .return-page-metric > strong.is-red {
@@ -117,7 +117,7 @@
 .return-page-metric p {
     margin: 20px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.55;
 }
 .return-page-workspace {
@@ -154,7 +154,7 @@
 .return-page-card-heading p {
     margin: 5px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.5;
 }
 .return-page-card-heading > span {
@@ -163,7 +163,7 @@
     border-radius: 999px;
     background: #eff4ff;
     color: #1d4ed8;
-    font-size: 9px;
+    font-size: 13px;
 }
 .return-page-empty {
     display: grid;
@@ -189,7 +189,7 @@
     max-width: 410px;
     margin: 0;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .return-page-loan-list {
@@ -231,7 +231,7 @@
 }
 .return-page-loan-title small {
     color: #1d4ed8;
-    font-size: 9px;
+    font-size: 13px;
 }
 .return-page-loan-title h3 {
     margin: 5px 0 3px;
@@ -241,7 +241,7 @@
 .return-page-loan-title p {
     margin: 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
 }
 .return-page-badge {
     display: inline-flex;
@@ -252,7 +252,7 @@
     border-radius: 999px;
     background: #eff6ff;
     color: #2563eb;
-    font-size: 9px;
+    font-size: 13px;
     line-height: 1.3;
 }
 .return-page-badge.is-late {
@@ -277,7 +277,7 @@
 .return-page-status-grid dt,
 .return-page-history dt {
     color: #94a3b8;
-    font-size: 8px;
+    font-size: 13px;
     text-transform: uppercase;
 }
 .return-page-loan dd,
@@ -285,7 +285,7 @@
 .return-page-history dd {
     margin: 3px 0 0;
     color: #334155;
-    font-size: 10px;
+    font-size: 13px;
     overflow-wrap: anywhere;
 }
 .return-page-return-state {
@@ -303,7 +303,7 @@
     align-items: center;
     gap: 5px;
     color: #475569;
-    font-size: 9px;
+    font-size: 13px;
 }
 .return-page-return-state .member-icon {
     width: 14px;
@@ -311,12 +311,12 @@
     color: #1d4ed8;
 }
 .return-page-return-state strong {
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 600;
 }
 .return-page-return-state small {
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
 }
 .return-page-preview-body {
     display: grid;
@@ -340,17 +340,17 @@
     border-radius: 50%;
     background: #1d4ed8;
     color: #fff;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 .return-page-preview-body h3 {
     margin: 2px 0 4px;
-    font-size: 11px;
+    font-size: 13px;
 }
 .return-page-preview-body p {
     margin: 0;
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
     line-height: 1.55;
 }
 .return-page-preview-body button {
@@ -364,7 +364,7 @@
     background: #cbd5e1;
     color: #64748b;
     cursor: not-allowed;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 .return-page-preview-body button .member-icon {
@@ -386,7 +386,7 @@
     margin: 0;
     padding: 32px 20px;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
     text-align: center;
 }
 .return-page-status-grid {
@@ -404,11 +404,11 @@
 }
 .return-page-status-grid article > div:first-child small {
     color: #1d4ed8;
-    font-size: 8px;
+    font-size: 13px;
 }
 .return-page-status-grid h3 {
     margin: 5px 0 12px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
 }
 .return-page-status-grid dl {
@@ -449,12 +449,12 @@
 }
 .return-page-history h3 {
     margin: 0 0 4px;
-    font-size: 11px;
+    font-size: 13px;
 }
 .return-page-history p {
     margin: 0;
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
 }
 .return-page-history dl {
     display: grid;
@@ -486,13 +486,13 @@
     max-width: 680px;
     margin: 5px 0 0;
     color: #475569;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .return-page-info a {
     align-self: center;
     color: #1d4ed8;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;

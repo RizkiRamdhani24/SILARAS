@@ -4,10 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Anggota;
 use App\Models\Buku;
+use App\Models\Notifikasi;
+use App\Models\PembayaranDenda;
 use App\Models\Peminjaman;
+use App\Models\Petugas;
+use App\Models\TagihanDenda;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AnggotaDashboardTest extends TestCase
@@ -40,6 +45,8 @@ class AnggotaDashboardTest extends TestCase
             $table->string('isbn')->nullable();
             $table->string('rak')->nullable();
             $table->string('cover')->nullable();
+            $table->string('pdf')->nullable();
+            $table->boolean('diarsipkan')->default(false);
             $table->timestamps();
         });
 
@@ -86,7 +93,7 @@ class AnggotaDashboardTest extends TestCase
         $this->actingAs($member, 'anggota')
             ->get(route('anggota.buku.show', $book->getKey()))
             ->assertOk()
-            ->assertSee('ID: ' . $book->getKey())
+            ->assertSee('ID: '.$book->getKey())
             ->assertSee('Metadata dari Database')
             ->assertSee('Penulis Integrasi')
             ->assertSee('Penerbit Integrasi')
@@ -103,6 +110,69 @@ class AnggotaDashboardTest extends TestCase
     public function test_member_catalog_stays_protected(): void
     {
         $this->get('/anggota/katalog')->assertRedirect('/login');
+    }
+
+    public function test_catalog_remains_available_before_book_archive_migration(): void
+    {
+        $member = $this->createMember();
+        $book = $this->createBook('Buku Sebelum Migration');
+        Schema::table('buku', function (Blueprint $table) {
+            $table->dropColumn('diarsipkan');
+        });
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.katalog'))
+            ->assertOk()
+            ->assertSee($book->judul_buku);
+    }
+
+    public function test_private_book_pdf_remains_readable_before_book_archive_migration(): void
+    {
+        Storage::fake('local');
+        $member = $this->createMember();
+        $book = $this->createBook('PDF Sebelum Migration', ['pdf' => 'buku/pdf/sample.pdf']);
+        Storage::disk('local')->put($book->pdf, '%PDF-1.4 test content');
+        Schema::table('buku', function (Blueprint $table) {
+            $table->dropColumn('diarsipkan');
+        });
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.buku.pdf', $book->getKey()))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertStreamedContent('%PDF-1.4 test content');
+    }
+
+    public function test_authenticated_member_can_download_private_book_pdf(): void
+    {
+        Storage::fake('local');
+        $member = $this->createMember();
+        $book = $this->createBook('Buku Uji Unduh', ['pdf' => 'buku/pdf/sample.pdf']);
+        Storage::disk('local')->put($book->pdf, '%PDF-1.4 test content');
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.buku.pdf.download', $book->getKey()))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertHeader('content-disposition', 'attachment; filename=buku-uji-unduh.pdf')
+            ->assertStreamedContent('%PDF-1.4 test content');
+    }
+
+    public function test_book_pdf_download_stays_protected_from_guests_and_petugas(): void
+    {
+        $book = $this->createBook('Buku Unduhan Terlindungi', ['pdf' => 'buku/pdf/private.pdf']);
+
+        $this->get(route('anggota.buku.pdf.download', $book->getKey()))
+            ->assertRedirect('/login');
+
+        $petugas = new Petugas([
+            'nama_petugas' => 'Petugas Uji',
+            'email_petugas' => 'petugas-download@example.test',
+        ]);
+
+        $this->actingAs($petugas, 'petugas')
+            ->get(route('anggota.buku.pdf.download', $book->getKey()))
+            ->assertForbidden();
     }
 
     public function test_member_book_detail_stays_protected(): void
@@ -126,7 +196,7 @@ class AnggotaDashboardTest extends TestCase
 
     public function test_petugas_cannot_open_member_routes(): void
     {
-        $petugas = new \App\Models\Petugas([
+        $petugas = new Petugas([
             'nama_petugas' => 'Petugas Pengujian',
             'email_petugas' => 'petugas@example.test',
         ]);
@@ -163,10 +233,14 @@ class AnggotaDashboardTest extends TestCase
             ->assertSee('978-000-000')
             ->assertSee('Rak 07')
             ->assertSee('Buku fisik')
+            ->assertSee(
+                'data-confirm="Ajukan peminjaman buku Arsitektur Perangkat Lunak dengan durasi yang dipilih?"',
+                false
+            )
             ->assertDontSee('Filosofi Teras');
     }
 
-    public function test_available_book_detail_shows_frontend_only_loan_request_ui(): void
+    public function test_available_book_detail_offers_the_allowed_loan_durations(): void
     {
         $member = $this->createMember();
         $book = $this->createBook('Buku Siap Dipinjam', ['stock' => 2]);
@@ -175,9 +249,11 @@ class AnggotaDashboardTest extends TestCase
             ->get(route('anggota.buku.show', $book->getKey()))
             ->assertOk()
             ->assertSee('Informasi Peminjaman')
-            ->assertSee('Pengajuan online belum dapat diproses')
-            ->assertSee('data-loan-request-form', false)
-            ->assertDontSee('Pengajuan berhasil');
+            ->assertSee('Durasi peminjaman')
+            ->assertSee('7 hari')
+            ->assertSee('14 hari')
+            ->assertSee('30 hari')
+            ->assertSee(route('anggota.peminjaman.store'));
     }
 
     public function test_catalog_search_matches_each_supported_book_field(): void
@@ -192,8 +268,8 @@ class AnggotaDashboardTest extends TestCase
         ];
 
         foreach ($fields as $field => $needle) {
-            $matching = $this->createBook('Cocok ' . $field, [$field => $needle]);
-            $other = $this->createBook('Bukan ' . $field);
+            $matching = $this->createBook('Cocok '.$field, [$field => $needle]);
+            $other = $this->createBook('Bukan '.$field);
 
             $this->actingAs($member, 'anggota')
                 ->get(route('anggota.katalog', ['q' => $needle]))
@@ -236,7 +312,7 @@ class AnggotaDashboardTest extends TestCase
             $this->createBook(sprintf('Buku Teknologi %02d', $number), [
                 'kategori' => 'Teknologi',
                 'stock' => 1,
-                'isbn' => 'FILTER-' . $number,
+                'isbn' => 'FILTER-'.$number,
             ]);
         }
 
@@ -291,6 +367,42 @@ class AnggotaDashboardTest extends TestCase
             ->assertSee('Belum tersedia')
             ->assertSee('Lokasi belum tersedia')
             ->assertSee('Sampul buku tidak tersedia');
+    }
+
+    public function test_missing_cover_file_uses_placeholder_in_catalog_and_book_detail(): void
+    {
+        Storage::fake('public');
+        $member = $this->createMember();
+        $book = $this->createBook('Cover Hilang', [
+            'cover' => 'buku/cover/cover-tidak-ada.jpg',
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.katalog'))
+            ->assertOk()
+            ->assertSee('Sampul buku tidak tersedia')
+            ->assertDontSee('/storage/buku/cover/cover-tidak-ada.jpg');
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.buku.show', $book->getKey()))
+            ->assertOk()
+            ->assertSee('Sampul buku tidak tersedia')
+            ->assertDontSee('/storage/buku/cover/cover-tidak-ada.jpg');
+    }
+
+    public function test_existing_cover_is_served_from_public_storage(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('buku/cover/cover-tersedia.jpg', 'cover');
+        $member = $this->createMember();
+        $this->createBook('Cover Publik', [
+            'cover' => 'buku/cover/cover-tersedia.jpg',
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.katalog'))
+            ->assertOk()
+            ->assertSee('/storage/buku/cover/cover-tersedia.jpg');
     }
 
     public function test_related_books_come_only_from_selected_category_database_records(): void
@@ -375,6 +487,195 @@ class AnggotaDashboardTest extends TestCase
             ->assertDontSee('Buku Anggota Lain');
     }
 
+    public function test_dashboard_shows_blue_fine_hero_when_member_has_no_unpaid_bills(): void
+    {
+        $this->createFineTables();
+        $member = $this->createMember();
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.dashboard'))
+            ->assertOk()
+            ->assertSee('member-fine-alert is-biru', false)
+            ->assertSee('Tidak ada tunggakan denda yang perlu diselesaikan.');
+    }
+
+    public function test_dashboard_shows_yellow_fine_hero_and_total_for_unpaid_bill(): void
+    {
+        $this->createFineTables();
+        $member = $this->createMember();
+        $book = $this->createBook('Buku dengan Denda');
+        $loan = Peminjaman::query()->create([
+            'id_anggota' => $member->getKey(),
+            'id_buku' => $book->getKey(),
+            'tgl_peminjaman' => Carbon::today(),
+            'status_peminjaman' => Peminjaman::STATUS_DIKEMBALIKAN,
+        ]);
+        TagihanDenda::query()->create([
+            'id_peminjaman' => $loan->getKey(),
+            'id_anggota' => $member->getKey(),
+            'nominal_tagihan' => 15000,
+            'tgl_tagihan' => Carbon::today(),
+            'status_tagihan' => TagihanDenda::STATUS_BELUM_LUNAS,
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.dashboard'))
+            ->assertOk()
+            ->assertSee('member-fine-alert is-kuning', false)
+            ->assertSee('Total tagihan belum lunas: Rp15.000');
+    }
+
+    public function test_dashboard_shows_red_fine_hero_while_late_fine_is_running(): void
+    {
+        $this->createFineTables();
+        $member = $this->createMember();
+        $book = $this->createBook('Buku Terlambat');
+        $loan = Peminjaman::query()->create([
+            'id_anggota' => $member->getKey(),
+            'id_buku' => $book->getKey(),
+            'tgl_peminjaman' => Carbon::today()->subDays(10),
+            'tgl_jatuh_tempo' => Carbon::today()->subDay(),
+            'status_peminjaman' => Peminjaman::STATUS_TERLAMBAT,
+        ]);
+        TagihanDenda::query()->create([
+            'id_peminjaman' => $loan->getKey(),
+            'id_anggota' => $member->getKey(),
+            'nominal_tagihan' => 5000,
+            'tgl_tagihan' => Carbon::today(),
+            'status_tagihan' => TagihanDenda::STATUS_BELUM_LUNAS,
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.dashboard'))
+            ->assertOk()
+            ->assertSee('member-fine-alert is-merah', false)
+            ->assertSee('Denda keterlambatan masih bertambah sampai pengembalian dikonfirmasi.');
+    }
+
+    public function test_dashboard_uses_the_latest_payment_attempt_for_fine_hero_status(): void
+    {
+        $this->createFineTables();
+        $member = $this->createMember();
+        $book = $this->createBook('Buku Pembayaran Ulang');
+        $loan = Peminjaman::query()->create([
+            'id_anggota' => $member->getKey(),
+            'id_buku' => $book->getKey(),
+            'tgl_peminjaman' => Carbon::today(),
+            'status_peminjaman' => Peminjaman::STATUS_DIKEMBALIKAN,
+        ]);
+        $bill = TagihanDenda::query()->create([
+            'id_peminjaman' => $loan->getKey(),
+            'id_anggota' => $member->getKey(),
+            'nominal_tagihan' => 15000,
+            'tgl_tagihan' => Carbon::today(),
+            'status_tagihan' => TagihanDenda::STATUS_BELUM_LUNAS,
+        ]);
+        $rejectedPayment = PembayaranDenda::query()->create([
+            'id_tagihan_denda' => $bill->getKey(),
+            'id_anggota' => $member->getKey(),
+            'metode_pembayaran' => 'qris',
+            'jumlah_pembayaran' => 15000,
+            'status_pembayaran' => 'ditolak',
+        ]);
+        $rejectedPayment->created_at = Carbon::now()->subMinute();
+        $rejectedPayment->save();
+        PembayaranDenda::query()->create([
+            'id_tagihan_denda' => $bill->getKey(),
+            'id_anggota' => $member->getKey(),
+            'metode_pembayaran' => 'qris',
+            'jumlah_pembayaran' => 15000,
+            'status_pembayaran' => 'menunggu_verifikasi',
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.dashboard'))
+            ->assertOk()
+            ->assertSee('member-fine-alert is-kuning', false)
+            ->assertSee('Pembayaran sedang menunggu verifikasi Petugas.')
+            ->assertDontSee('Pembayaran denda ditolak.');
+    }
+
+    public function test_member_can_view_and_open_only_their_own_notifications(): void
+    {
+        Schema::create('notifikasi', function (Blueprint $table) {
+            $table->id('id_notifikasi');
+            $table->unsignedBigInteger('id_anggota');
+            $table->string('judul');
+            $table->text('isi');
+            $table->string('jenis')->default('info');
+            $table->boolean('is_dibaca')->default(false);
+            $table->string('tautan')->nullable();
+            $table->timestamps();
+        });
+
+        $member = $this->createMember();
+        $otherMember = $this->createMember();
+        $notification = Notifikasi::query()->create([
+            'id_anggota' => $member->getKey(),
+            'judul' => 'Tagihan denda baru',
+            'isi' => 'Silakan periksa tagihan Anda.',
+            'jenis' => 'denda',
+        ]);
+        $otherNotification = Notifikasi::query()->create([
+            'id_anggota' => $otherMember->getKey(),
+            'judul' => 'Notifikasi privat',
+            'isi' => 'Informasi anggota lain.',
+            'jenis' => 'info',
+        ]);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.dashboard'))
+            ->assertOk()
+            ->assertSee('Tagihan denda baru')
+            ->assertSee('1 belum dibaca');
+
+        $this->get(route('anggota.notifikasi.index'))
+            ->assertOk()
+            ->assertSee('Tagihan denda baru')
+            ->assertDontSee('Notifikasi privat');
+
+        $this->post(route('anggota.notifikasi.buka', $notification->getKey()))
+            ->assertRedirect(route('anggota.notifikasi.index'));
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_notifikasi' => $notification->getKey(),
+            'is_dibaca' => true,
+        ]);
+
+        $this->post(route('anggota.notifikasi.buka', $otherNotification->getKey()))
+            ->assertNotFound();
+    }
+
+    private function createFineTables(): void
+    {
+        Schema::create('tagihan_denda', function (Blueprint $table) {
+            $table->id('id_tagihan_denda');
+            $table->unsignedBigInteger('id_peminjaman');
+            $table->unsignedBigInteger('id_anggota');
+            $table->decimal('nominal_tagihan', 15, 2);
+            $table->date('tgl_tagihan');
+            $table->date('tgl_terakhir_diperbarui')->nullable();
+            $table->timestamp('dibekukan_at')->nullable();
+            $table->string('status_tagihan');
+            $table->text('keterangan')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('pembayaran_denda', function (Blueprint $table) {
+            $table->id('id_pembayaran_denda');
+            $table->unsignedBigInteger('id_tagihan_denda');
+            $table->unsignedBigInteger('id_anggota');
+            $table->string('metode_pembayaran');
+            $table->decimal('jumlah_pembayaran', 15, 2);
+            $table->string('bukti_pembayaran')->nullable();
+            $table->string('status_pembayaran');
+            $table->text('catatan_petugas')->nullable();
+            $table->dateTime('waktu_pembayaran')->nullable();
+            $table->dateTime('waktu_verifikasi')->nullable();
+            $table->timestamps();
+        });
+    }
+
     private function createMember(): Anggota
     {
         static $number = 0;
@@ -382,7 +683,7 @@ class AnggotaDashboardTest extends TestCase
 
         return Anggota::query()->create([
             'nama_anggota' => 'Anggota Pengujian',
-            'email_anggota' => 'anggota' . $number . '@example.test',
+            'email_anggota' => 'anggota'.$number.'@example.test',
             'password' => 'password',
             'status_anggota' => Anggota::STATUS_AKTIF,
         ]);

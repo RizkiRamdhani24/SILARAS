@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Pengembalian;
 
 use App\Http\Controllers\Controller;
 use App\Models\Peminjaman;
+use App\Models\Petugas;
 use App\Models\Pengembalian;
+use App\Services\DendaService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +16,7 @@ class PengembalianController extends Controller
     // Anggota melihat daftar peminjamannya yang bisa dikembalikan
     public function indexAnggota()
     {
-        $peminjaman = Peminjaman::with(['buku', 'pengembalian'])
+        $peminjaman = Peminjaman::with(['buku', 'pengembalian', 'pengembalians'])
             ->where('id_anggota', auth('anggota')->id())
             ->whereIn('status_peminjaman', [
                 Peminjaman::STATUS_DIPINJAM,
@@ -21,7 +24,7 @@ class PengembalianController extends Controller
                 Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN,
                 Peminjaman::STATUS_DIKEMBALIKAN,
             ])
-            ->latest()
+            ->latest('id_peminjaman')
             ->get();
 
         return view('anggota.pengembalian.index', compact('peminjaman'));
@@ -38,17 +41,17 @@ class PengembalianController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (!in_array($peminjaman->status_peminjaman, [
+            if (! in_array($peminjaman->status_peminjaman, [
                 Peminjaman::STATUS_DIPINJAM,
                 Peminjaman::STATUS_TERLAMBAT,
-            ])) {
+            ], true) || $peminjaman->pengembalianAktif()->exists()) {
                 abort(422, 'Peminjaman ini tidak dapat diajukan untuk pengembalian.');
             }
 
-            Pengembalian::create([
+            $pengembalian = Pengembalian::create([
                 'id_peminjaman' => $peminjaman->id_peminjaman,
                 'id_petugas' => null,
-                'tgl_pengembalian' => now()->toDateString(),
+                'tgl_pengembalian' => null,
                 'denda' => 0,
                 'kondisi_buku' => null,
                 'status_pengembalian' => Pengembalian::STATUS_MENUNGGU_VALIDASI,
@@ -58,40 +61,180 @@ class PengembalianController extends Controller
             $peminjaman->update([
                 'status_peminjaman' => Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN,
             ]);
+
+            $notifikasiService = app(DendaService::class);
+            foreach (Petugas::query()->get(['id_petugas']) as $petugas) {
+                $notifikasiService->buatNotifikasi(
+                    null,
+                    $petugas->id_petugas,
+                    'Pengajuan pengembalian baru',
+                    'Anggota mengajukan pengembalian untuk peminjaman #' . $peminjaman->id_peminjaman . '.',
+                    'pengembalian',
+                    route('petugas.pengembalian.index', ['pengembalian' => $pengembalian->id_pengembalian])
+                );
+            }
         });
 
-        return redirect()->back()->with(
+        return redirect()->route('anggota.pengembalian.index')->with(
             'success',
             'Pengajuan pengembalian berhasil dikirim.'
         );
     }
 
-    // Petugas melihat daftar pengembalian
-    public function indexPetugas()
+    public function batalkan(Request $request, int $id)
     {
-        $pengembalian = Pengembalian::with([
+        $anggotaId = (int) auth('anggota')->id();
+        $dibatalkan = DB::transaction(function () use ($id, $anggotaId) {
+            $pengembalian = Pengembalian::query()
+                ->whereKey($id)
+                ->whereHas('peminjaman', fn ($query) => $query->where('id_anggota', $anggotaId))
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($pengembalian->status_pengembalian !== Pengembalian::STATUS_MENUNGGU_VALIDASI) {
+                return false;
+            }
+
+            $peminjaman = Peminjaman::query()
+                ->whereKey($pengembalian->id_peminjaman)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $pengembalian->update([
+                'status_pengembalian' => Pengembalian::STATUS_DIBATALKAN,
+            ]);
+
+            $statusAktif = $peminjaman->tgl_jatuh_tempo
+                && $peminjaman->tgl_jatuh_tempo->toDateString()
+                    < Carbon::now('Asia/Jakarta')->toDateString()
+                ? Peminjaman::STATUS_TERLAMBAT
+                : Peminjaman::STATUS_DIPINJAM;
+
+            $peminjaman->update(['status_peminjaman' => $statusAktif]);
+
+            return true;
+        }, 3);
+
+        if (! $dibatalkan) {
+            return back()->with('error', 'Pengajuan yang sudah diproses tidak dapat dibatalkan.');
+        }
+
+        return back()->with('success', 'Pengajuan pengembalian dibatalkan dan tersimpan di riwayat.');
+    }
+
+    // Petugas melihat daftar pengembalian
+    public function indexPetugas(Request $request)
+    {
+        $query = Pengembalian::with([
             'peminjaman.buku',
             'peminjaman.anggota',
             'petugas',
-        ])->latest()->get();
+        ]);
+        $search = trim((string) $request->query('q', ''));
+        $status = trim((string) $request->query('status', ''));
 
-        return view('petugas.pengembalian.index', compact('pengembalian'));
+        if ($search !== '') {
+            $query->whereHas('peminjaman', function ($loans) use ($search) {
+                $loans->whereHas('anggota', function ($members) use ($search) {
+                    $members->where('nama_anggota', 'like', "%{$search}%");
+                })->orWhereHas('buku', function ($books) use ($search) {
+                    $books->where('judul_buku', 'like', "%{$search}%");
+                });
+            });
+        }
+
+        if (in_array($status, [
+            Pengembalian::STATUS_MENUNGGU_VALIDASI,
+            Pengembalian::STATUS_SELESAI,
+            Pengembalian::STATUS_DIBATALKAN,
+        ], true)) {
+            $query->where('status_pengembalian', $status);
+        }
+
+        $pengembalian = $query->latest('id_pengembalian')
+            ->paginate(10)
+            ->withQueryString();
+        $jumlahMenunggu = Pengembalian::where(
+            'status_pengembalian',
+            Pengembalian::STATUS_MENUNGGU_VALIDASI
+        )->count();
+
+        return view('petugas.pengembalian.index', [
+            'pengembalian' => $pengembalian,
+            'jumlahMenunggu' => $jumlahMenunggu,
+            'search' => $search,
+            'selectedStatus' => $status,
+        ]);
     }
 
-    // Petugas memvalidasi pengembalian
+    public function formInputPetugas()
+    {
+        $peminjamanAktif = Peminjaman::with(['anggota', 'buku'])
+            ->whereIn('status_peminjaman', [
+                Peminjaman::STATUS_DIPINJAM,
+                Peminjaman::STATUS_TERLAMBAT,
+            ])
+            ->whereDoesntHave('pengembalianAktif')
+            ->orderByDesc('id_peminjaman')
+            ->get();
+
+        return view('petugas.pengembalian.input', compact('peminjamanAktif'));
+    }
+
+    public function storeLangsung(Request $request)
+    {
+        $validated = $request->validate([
+            'id_peminjaman' => ['required', 'integer', 'exists:peminjaman,id_peminjaman'],
+            'tgl_pengembalian' => [
+                'required',
+                'date',
+                'before_or_equal:' . Carbon::now('Asia/Jakarta')->toDateString(),
+            ],
+            'kondisi_buku' => ['required', 'in:baik,rusak,hilang'],
+        ]);
+        $petugas = auth('petugas')->user();
+
+        DB::transaction(function () use ($validated, $petugas) {
+            $peminjaman = Peminjaman::where('id_peminjaman', $validated['id_peminjaman'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->pastikanPeminjamanAktif($peminjaman);
+
+            $pengembalian = new Pengembalian([
+                'id_petugas' => $petugas->getAuthIdentifier(),
+                'tgl_pengembalian' => $validated['tgl_pengembalian'],
+                'denda' => 0,
+                'kondisi_buku' => $validated['kondisi_buku'],
+                'status_pengembalian' => Pengembalian::STATUS_SELESAI,
+                'status_denda' => Pengembalian::DENDA_TIDAK_ADA,
+            ]);
+            $pengembalian->peminjaman()->associate($peminjaman);
+            $pengembalian->save();
+
+            $this->selesaikanPengembalian($peminjaman, $pengembalian, $validated, $petugas);
+        }, 3);
+
+        return redirect()->route('petugas.pengembalian.index')
+            ->with('success', 'Pengembalian langsung berhasil dicatat.');
+    }
+
     public function setujui(Request $request, $id)
     {
         $validated = $request->validate([
-            'kondisi_buku' => 'required|in:baik,rusak,hilang',
+            'kondisi_buku' => ['required', 'in:baik,rusak,hilang'],
+            'tgl_pengembalian' => [
+                'nullable',
+                'date',
+                'before_or_equal:' . Carbon::now('Asia/Jakarta')->toDateString(),
+            ],
         ]);
+        $petugas = auth('petugas')->user();
 
-        $denda = 0;
-
-        DB::transaction(function () use ($id, $validated, &$denda) {
-            $pengembalian = Pengembalian::where(
-                'id_pengembalian',
-                $id
-            )->lockForUpdate()->firstOrFail();
+        DB::transaction(function () use ($id, $validated, $petugas) {
+            $pengembalian = Pengembalian::where('id_pengembalian', $id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($pengembalian->status_pengembalian !== Pengembalian::STATUS_MENUNGGU_VALIDASI) {
                 abort(422, 'Pengembalian ini sudah diproses.');
@@ -102,49 +245,87 @@ class PengembalianController extends Controller
                 $pengembalian->id_peminjaman
             )->lockForUpdate()->firstOrFail();
 
-            $buku = $peminjaman->buku()->lockForUpdate()->firstOrFail();
-
-            // Hitung denda Rp2.000 per hari keterlambatan
-            $tanggalKembali = \Carbon\Carbon::parse(
-                $pengembalian->tgl_pengembalian
-            )->startOfDay();
-
-            if ($peminjaman->tgl_jatuh_tempo) {
-                $jatuhTempo = \Carbon\Carbon::parse(
-                    $peminjaman->tgl_jatuh_tempo
-                )->startOfDay();
-
-                if ($tanggalKembali->greaterThan($jatuhTempo)) {
-                    $hariTerlambat = $jatuhTempo->diffInDays($tanggalKembali);
-                    $denda = $hariTerlambat * 2000;
-                }
+            if ($peminjaman->status_peminjaman !== Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN) {
+                abort(422, 'Status peminjaman tidak sesuai dengan pengajuan pengembalian.');
             }
 
-            $statusDenda = $denda > 0
-                ? Pengembalian::DENDA_BELUM_DIBAYAR
-                : Pengembalian::DENDA_TIDAK_ADA;
+            $this->selesaikanPengembalian($peminjaman, $pengembalian, $validated, $petugas);
+        }, 3);
 
-            $pengembalian->update([
-                'id_petugas' => auth('petugas')->id(),
-                'kondisi_buku' => $validated['kondisi_buku'],
-                'denda' => $denda,
-                'status_pengembalian' => Pengembalian::STATUS_SELESAI,
-                'status_denda' => $statusDenda,
-            ]);
+        return redirect()->back()->with('success', 'Pengembalian berhasil dikonfirmasi.');
+    }
 
-            $peminjaman->update([
-                'status_peminjaman' => Peminjaman::STATUS_DIKEMBALIKAN,
-            ]);
+    private function pastikanPeminjamanAktif(Peminjaman $peminjaman): void
+    {
+        if (! in_array($peminjaman->status_peminjaman, [
+            Peminjaman::STATUS_DIPINJAM,
+            Peminjaman::STATUS_TERLAMBAT,
+        ], true) || $peminjaman->pengembalianAktif()->exists()) {
+            abort(422, 'Peminjaman tidak aktif atau sudah memiliki transaksi pengembalian.');
+        }
+    }
 
-            // Hanya buku kondisi baik yang kembali menjadi stok tersedia
-            if ($validated['kondisi_buku'] === Pengembalian::KONDISI_BAIK) {
-                $buku->increment('stock');
-            }
-        });
-
-        return redirect()->back()->with(
-            'success',
-            'Pengembalian berhasil divalidasi. Denda: Rp' . number_format($denda, 0, ',', '.')
+    private function selesaikanPengembalian(
+        Peminjaman $peminjaman,
+        Pengembalian $pengembalian,
+        array $validated,
+        Petugas $petugas
+    ): void {
+        $buku = $peminjaman->buku()->lockForUpdate()->firstOrFail();
+        $tanggalKembali = Carbon::parse(
+            $validated['tgl_pengembalian'] ?? Carbon::now('Asia/Jakarta')->toDateString(),
+            'Asia/Jakarta'
+        )->startOfDay();
+        $dendaService = app(DendaService::class);
+        $tagihan = $dendaService->syncTagihanForPeminjaman(
+            $peminjaman,
+            $tanggalKembali,
+            $validated['kondisi_buku'],
+            true
         );
+        $denda = $tagihan ? (float) $tagihan->nominal_tagihan : 0.0;
+        $statusDenda = $tagihan
+            ? $dendaService->statusDendaPengembalian($tagihan)
+            : Pengembalian::DENDA_TIDAK_ADA;
+
+        $pengembalian->update([
+            'id_petugas' => $petugas->getAuthIdentifier(),
+            'tgl_pengembalian' => $tanggalKembali->toDateString(),
+            'kondisi_buku' => $validated['kondisi_buku'],
+            'denda' => $denda,
+            'status_pengembalian' => Pengembalian::STATUS_SELESAI,
+            'status_denda' => $statusDenda,
+        ]);
+        $peminjaman->update([
+            'id_petugas' => $petugas->getAuthIdentifier(),
+            'status_peminjaman' => $validated['kondisi_buku'] === Pengembalian::KONDISI_HILANG
+                ? Peminjaman::STATUS_HILANG
+                : Peminjaman::STATUS_DIKEMBALIKAN,
+        ]);
+
+        if ($validated['kondisi_buku'] === Pengembalian::KONDISI_BAIK) {
+            $buku->increment('stock');
+        }
+
+        $dendaService->buatNotifikasi(
+            $peminjaman->id_anggota,
+            null,
+            'Pengembalian dikonfirmasi',
+            'Pengembalian buku untuk peminjaman #' . $peminjaman->id_peminjaman . ' telah dikonfirmasi.'
+                . ($denda > 0 ? ' Tagihan denda: Rp' . number_format($denda, 0, ',', '.') . '.' : ' Tidak ada denda keterlambatan.'),
+            'pengembalian',
+            route('anggota.pengembalian.index')
+        );
+
+        if ($denda > 0) {
+            $dendaService->buatNotifikasi(
+                $peminjaman->id_anggota,
+                null,
+                'Tagihan denda diterbitkan',
+                'Petugas telah menerbitkan tagihan denda untuk peminjaman #' . $peminjaman->id_peminjaman . '.',
+                'denda',
+                route('anggota.denda.index')
+            );
+        }
     }
 }

@@ -20,12 +20,16 @@ class Buku extends Model
         'rak',
         'cover',
         'pdf',
+        'diarsipkan',
     ];
+
+    protected $hidden = ['diarsipkan'];
 
     protected function casts(): array
     {
         return [
             'stock' => 'integer',
+            'diarsipkan' => 'boolean',
         ];
     }
 

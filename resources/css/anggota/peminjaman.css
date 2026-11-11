@@ -18,7 +18,7 @@
     max-width: 650px;
     margin: 0;
     color: #475569;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .loan-page-heading > span {
@@ -31,7 +31,7 @@
     border-radius: 8px;
     background: #fff;
     color: #1e3a8a;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 .loan-page-heading > span .member-icon {
@@ -65,7 +65,7 @@
 }
 .loan-page-metric header {
     color: #475569;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
 }
 .loan-page-metric header b {
@@ -94,7 +94,7 @@
     min-height: 29px;
     margin: 6px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.45;
 }
 .loan-page-workflow {
@@ -165,7 +165,7 @@
     height: 28px;
 }
 .loan-page-cover span {
-    font-size: 8px;
+    font-size: 13px;
     line-height: 1.35;
 }
 .loan-page-book-info {
@@ -190,7 +190,7 @@
 .loan-page-book-info > p {
     margin: 0;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
 }
 .loan-page-book-info dl {
     display: flex;
@@ -212,7 +212,7 @@
 .loan-page-book-info dd {
     margin: 0;
     color: #1e3a8a;
-    font-size: 10px;
+    font-size: 13px;
     overflow-wrap: anywhere;
 }
 .loan-page-empty {
@@ -249,7 +249,7 @@
     max-width: 410px;
     margin: 0 0 8px;
     color: #64748b;
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.55;
 }
 .loan-page-fields {
@@ -269,7 +269,7 @@
 .loan-page-fields label > span {
     margin: 0;
     color: #334155;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
 }
 .loan-page-fields label > span em {
@@ -285,7 +285,7 @@
     outline: 0;
     background: #fff;
     color: #0f172a;
-    font-size: 12px;
+    font-size: 13px;
 }
 .loan-page-fields input {
     min-height: 42px;
@@ -310,7 +310,7 @@
 }
 .loan-page-fields small {
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 400;
     line-height: 1.45;
 }
@@ -336,7 +336,7 @@
 }
 .loan-page-readonly strong {
     color: #1e3a8a;
-    font-size: 10px;
+    font-size: 13px;
 }
 .loan-page-readonly small {
     color: #475569;
@@ -349,7 +349,7 @@
 }
 .loan-page-actions .button {
     min-height: 44px;
-    font-size: 10px;
+    font-size: 13px;
 }
 .loan-page-actions .member-icon {
     width: 15px;
@@ -371,7 +371,7 @@
 .loan-page-checks > p {
     margin: 15px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.5;
 }
 .loan-page-checks ul {
@@ -403,16 +403,16 @@
 }
 .loan-page-checks li strong {
     color: #334155;
-    font-size: 10px;
+    font-size: 13px;
 }
 .loan-page-checks li small {
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
     line-height: 1.4;
 }
 .loan-page-checks li > b {
     color: #d97706;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 500;
 }
 .loan-page-checks .is-ready > .member-icon,
@@ -437,11 +437,11 @@
     flex: 0 0 auto;
 }
 .loan-page-notice strong {
-    font-size: 11px;
+    font-size: 13px;
 }
 .loan-page-notice p {
     margin: 5px 0 0;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.55;
 }
 .loan-page-sop {
@@ -468,7 +468,7 @@
     max-width: 650px;
     margin: 5px 0 0;
     color: #475569;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .loan-page-sop nav {
@@ -482,7 +482,7 @@
     border-radius: 4px;
     background: #eff4ff;
     color: #1e3a8a;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;

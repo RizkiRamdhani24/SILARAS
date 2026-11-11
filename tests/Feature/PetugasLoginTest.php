@@ -25,7 +25,6 @@ class PetugasLoginTest extends TestCase
             $table->id('id_petugas');
             $table->string('nama_petugas');
             $table->string('email_petugas')->unique();
-            $table->string('shift')->nullable();
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
@@ -70,6 +69,44 @@ class PetugasLoginTest extends TestCase
         $this->get(route('petugas.dashboard'))
             ->assertOk()
             ->assertSeeText('Dashboard Petugas');
+    }
+
+    public function test_petugas_can_view_profile_from_the_header_navigation(): void
+    {
+        $petugas = Petugas::create([
+            'nama_petugas' => 'Petugas Profil',
+            'email_petugas' => 'profil.petugas@example.test',
+            'password' => Hash::make('Sandi-aman-123'),
+        ]);
+
+        $this->actingAs($petugas, 'petugas')
+            ->get(route('petugas.profile'))
+            ->assertOk()
+            ->assertSeeText('Petugas Profil')
+            ->assertSee('profil.petugas@example.test', false)
+            ->assertSee(route('petugas.profile'), false);
+    }
+
+    public function test_petugas_can_update_own_name_but_not_email(): void
+    {
+        $petugas = Petugas::create([
+            'nama_petugas' => 'Petugas Lama',
+            'email_petugas' => 'petugas.akun@example.test',
+            'password' => Hash::make('Sandi-aman-123'),
+        ]);
+
+        $this->actingAs($petugas, 'petugas')
+            ->from(route('petugas.profile'))
+            ->put(route('petugas.profile.update'), [
+                'nama_petugas' => 'Petugas Terbaru',
+                'email_petugas' => 'email-baru@example.test',
+            ])
+            ->assertRedirect(route('petugas.profile'))
+            ->assertSessionHas('status', 'Profil berhasil diperbarui.');
+
+        $petugas->refresh();
+        $this->assertSame('Petugas Terbaru', $petugas->nama_petugas);
+        $this->assertSame('petugas.akun@example.test', $petugas->email_petugas);
     }
 
     public function test_petugas_login_rejects_an_invalid_password(): void

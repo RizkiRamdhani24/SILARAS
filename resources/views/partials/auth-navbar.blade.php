@@ -13,16 +13,11 @@
         
     <div class="silaras-auth-navbar-actions">
         <nav class="silaras-auth-nav-links" aria-label="Navigasi utama">
-            <a href="{{ route('home') }}" @if (request()->routeIs('home')) aria-current="page" @endif>Beranda</a>
-            @if (request()->routeIs('home'))
-                <a href="{{ route('home') }}#koleksi">Katalog</a>
-                <a href="{{ route('home') }}#kategori">Jenis Kategori</a>
-                <a href="{{ route('home') }}#faq">FAQ</a>
-                <a href="{{ route('home') }}#kontak">Kontak</a>
-            @else
-                <a href="{{ route('home') }}#koleksi">Katalog</a>
-                <a href="{{ route('home') }}#kategori">Jenis Kategori</a>
-            @endif
+            <a href="{{ route('home') }}#beranda">Beranda</a>
+            <a href="{{ route('home') }}#koleksi">Katalog</a>
+            <a href="{{ route('home') }}#kategori">Jenis Kategori</a>
+            <a href="{{ route('home') }}#faq">FAQ</a>
+            <a href="{{ route('home') }}#kontak">Kontak</a>
         </nav>
 
         @if (auth('anggota')->check())

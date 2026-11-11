@@ -44,4 +44,19 @@ class Anggota extends Authenticatable
             'id_anggota'
         );
     }
+
+    public function tagihanDenda(): HasMany
+    {
+        return $this->hasMany(TagihanDenda::class, 'id_anggota', 'id_anggota');
+    }
+
+    public function pembayaranDenda(): HasMany
+    {
+        return $this->hasMany(PembayaranDenda::class, 'id_anggota', 'id_anggota');
+    }
+
+    public function notifikasi(): HasMany
+    {
+        return $this->hasMany(Notifikasi::class, 'id_anggota', 'id_anggota');
+    }
 }

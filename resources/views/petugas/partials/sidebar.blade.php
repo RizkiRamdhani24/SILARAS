@@ -7,6 +7,7 @@
         ['label' => 'Pengembalian', 'path' => 'petugas/pengembalian', 'icon' => 'return', 'badge' => null],
         ['label' => 'Denda', 'path' => 'petugas/denda', 'icon' => 'cash', 'badge' => null],
         ['label' => 'Riwayat/Transaksi', 'path' => 'petugas/transaksi', 'icon' => 'history', 'badge' => null],
+        ['label' => 'Profil Saya', 'path' => 'petugas/profil', 'icon' => 'person', 'badge' => null],
     ];
 @endphp
 
@@ -53,8 +54,8 @@
 
     <div class="m-4 rounded-2xl bg-[#EEF3FC] p-3">
         <div class="flex items-center gap-3">
-            <span class="grid size-10 shrink-0 place-items-center rounded-full bg-blue-700 text-sm font-bold text-white">{{ $inisial }}</span>
-            <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ $namaPetugas }}</p>
+            <a href="{{ route('petugas.profile') }}" aria-label="Buka profil {{ $namaPetugas }}" class="grid size-10 shrink-0 place-items-center rounded-full bg-blue-700 text-sm font-bold text-white">{{ $inisial }}</a>
+            <a href="{{ route('petugas.profile') }}" class="min-w-0 flex-1 truncate text-sm font-semibold hover:text-blue-700">{{ $namaPetugas }}</a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-white hover:text-red-600" aria-label="Keluar">
@@ -62,9 +63,5 @@
                 </button>
             </form>
         </div>
-        <p class="mt-3 flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-600">
-            <span class="size-2 rounded-full bg-blue-600"></span>
-            Shift {{ $shiftPetugas }}@if ($jamShift) ({{ $jamShift }})@endif
-        </p>
     </div>
 </aside>

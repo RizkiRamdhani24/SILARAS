@@ -12,6 +12,7 @@ class Pengembalian extends Model
     public const KONDISI_HILANG = 'hilang';
     public const STATUS_MENUNGGU_VALIDASI = 'menunggu validasi';
     public const STATUS_SELESAI = 'selesai';
+    public const STATUS_DIBATALKAN = 'dibatalkan';
     public const DENDA_TIDAK_ADA = 'tidak ada';
     public const DENDA_BELUM_DIBAYAR = 'belum dibayar';
     public const DENDA_LUNAS = 'lunas';

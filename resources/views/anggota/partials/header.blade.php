@@ -24,9 +24,41 @@
                 <button class="member-logout-top" type="submit">Keluar</button>
             </form>
         @endauth
-        <button class="member-icon-button" type="button" aria-label="Notifikasi" disabled>
-            <span class="material-symbols-rounded member-icon" aria-hidden="true">notifications</span>
-        </button>
-        <span class="member-avatar" aria-hidden="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">person</span></span>
+        @auth('anggota')
+            <details class="member-notification-menu">
+                <summary class="member-icon-button" aria-label="Buka notifikasi" title="Notifikasi">
+                    <span class="material-symbols-rounded member-icon" aria-hidden="true">notifications</span>
+                    @if (($jumlahNotifikasiBelumDibaca ?? 0) > 0)
+                        <span class="member-notification-count">{{ $jumlahNotifikasiBelumDibaca > 99 ? '99+' : $jumlahNotifikasiBelumDibaca }}</span>
+                    @endif
+                </summary>
+                <div class="member-notification-popover">
+                    <div class="member-notification-heading">
+                        <strong>Notifikasi</strong>
+                        <span>{{ $jumlahNotifikasiBelumDibaca ?? 0 }} belum dibaca</span>
+                    </div>
+                    @forelse ($notifikasiAnggotaTerbaru ?? [] as $notification)
+                        <form method="POST" action="{{ route('anggota.notifikasi.buka', $notification->id_notifikasi) }}">
+                            @csrf
+                            <button class="member-notification-item {{ $notification->is_dibaca ? '' : 'is-unread' }}" type="submit">
+                                <span class="member-notification-item-title">{{ $notification->judul }}</span>
+                                <span class="member-notification-item-body">{{ $notification->isi }}</span>
+                                <time datetime="{{ $notification->created_at?->toIso8601String() }}">{{ $notification->created_at?->diffForHumans() }}</time>
+                            </button>
+                        </form>
+                    @empty
+                        <p class="member-notification-empty">Belum ada notifikasi.</p>
+                    @endforelse
+                    <a class="member-notification-all" href="{{ route('anggota.notifikasi.index') }}">Lihat semua notifikasi</a>
+                </div>
+            </details>
+        @endauth
+        @auth('anggota')
+            <a class="member-avatar" href="{{ route('anggota.profile') }}" aria-label="Buka profil anggota" title="Profil saya">
+                <span class="material-symbols-rounded member-icon" aria-hidden="true">person</span>
+            </a>
+        @else
+            <span class="member-avatar" aria-hidden="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">person</span></span>
+        @endauth
     </div>
 </header>

@@ -12,8 +12,8 @@
     <section class="book-detail" aria-labelledby="book-title">
         <div class="book-detail-cover-column">
             <div class="book-detail-cover">
-                @if ($book->cover)
-                    <img src="{{ \Illuminate\Support\Facades\Storage::url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                @if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
+                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                     <div class="catalog-cover-placeholder" hidden aria-label="Sampul buku tidak tersedia">
                         <span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>
                         <span>{{ $book->kategori ?: 'Koleksi pustaka' }}</span>
@@ -63,15 +63,32 @@
         </div>
     </section>
 
+    @if ($book->pdf)
+        <section class="book-description mt-6" aria-labelledby="book-pdf-title">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 id="book-pdf-title"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>Baca Buku Online</h2>
+                <a class="button button-primary" href="{{ route('anggota.buku.pdf.download', $book->id_buku) }}" download>
+                    <span class="material-symbols-rounded member-icon" aria-hidden="true">download</span>
+                    Unduh PDF
+                </a>
+            </div>
+            <iframe
+                title="Pratinjau PDF {{ $book->judul_buku }}"
+                src="{{ route('anggota.buku.pdf', $book->id_buku) }}"
+                class="mt-4 h-[82vh] min-h-[640px] w-full rounded-xl border border-slate-200"
+            ></iframe>
+        </section>
+    @endif
+
     {{-- SECTION: Loan request preview --}}
     @if ($book->stock > 0)
         <section class="loan-request" id="loan-request" aria-labelledby="loan-request-title">
             <header class="loan-request-heading">
                 <div>
                     <h2 id="loan-request-title">Peminjaman Buku Mandiri</h2>
-                    <p>Tinjau buku pilihan dan lengkapi rencana pengambilan. Pengajuan belum dapat dikirim sampai layanan backend tersedia.</p>
+                    <p>Pilih durasi peminjaman. Jatuh tempo ditetapkan saat Petugas menyetujui pengajuan.</p>
                 </div>
-                <span class="loan-request-status"><span class="material-symbols-rounded member-icon" aria-hidden="true">schedule</span>Menunggu integrasi</span>
+                <span class="loan-request-status"><span class="material-symbols-rounded member-icon" aria-hidden="true">schedule</span>Siap diajukan</span>
             </header>
 
             <section class="loan-request-prerequisites" aria-label="Ringkasan prasyarat peminjaman">
@@ -98,7 +115,15 @@
             </section>
 
             <div class="loan-request-grid">
-                <form class="loan-request-form" data-loan-request-form novalidate>
+                <form
+                    class="loan-request-form"
+                    method="POST"
+                    action="{{ route('anggota.peminjaman.store') }}"
+                    data-confirm="{{ 'Ajukan peminjaman buku ' . $book->judul_buku . ' dengan durasi yang dipilih?' }}"
+                    data-confirm-title="Konfirmasi peminjaman"
+                >
+                    @csrf
+                    <input type="hidden" name="id_buku" value="{{ $book->id_buku }}">
                     <section class="loan-request-card" aria-labelledby="loan-form-title">
                         <header class="loan-request-card-heading">
                             <h3 id="loan-form-title"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>Buku terpilih dari katalog</h3>
@@ -107,8 +132,8 @@
 
                         <div class="loan-request-book">
                             <div class="loan-request-cover">
-                                @if ($book->cover)
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                                @if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                     <div hidden aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><small>Sampul tidak tersedia</small></div>
                                 @else
                                     <div aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><small>Sampul tidak tersedia</small></div>
@@ -131,27 +156,23 @@
                         <div class="loan-request-fields">
                             <section aria-labelledby="loan-duration-title">
                                 <h4 id="loan-duration-title">Durasi peminjaman</h4>
-                                <div class="loan-request-readonly"><span class="material-symbols-rounded member-icon" aria-hidden="true">schedule</span><span><strong>Sesuai ketentuan petugas</strong><small>Durasi dan tanggal jatuh tempo ditetapkan saat peminjaman diproses.</small></span></div>
+                                <label for="durasi-peminjaman" class="sr-only">Durasi peminjaman</label>
+                                <select id="durasi-peminjaman" name="durasi_peminjaman_hari" required class="mt-2 w-full rounded-xl border-slate-200 px-3 py-2.5 text-sm">
+                                    <option value="7">7 hari</option>
+                                    <option value="14">14 hari</option>
+                                    <option value="30">30 hari</option>
+                                </select>
+                                <small>Jatuh tempo dihitung dari tanggal persetujuan Petugas.</small>
                             </section>
-                            <label>
-                                <span>Tanggal rencana pengambilan</span>
-                                <input type="date" name="planned_date" data-loan-date disabled aria-disabled="true" aria-describedby="loan-date-help loan-form-feedback">
-                                <small id="loan-date-help">Tanggal rencana belum dapat diisi karena pengajuan online belum tersedia.</small>
-                            </label>
                             <section aria-labelledby="loan-location-title">
                                 <h4 id="loan-location-title">Lokasi koleksi</h4>
                                 <div class="loan-request-readonly"><span class="material-symbols-rounded member-icon" aria-hidden="true">location_on</span><span><strong>{{ $book->rak ? 'Rak ' . $book->rak : 'Lokasi belum tersedia' }}</strong><small>Lokasi pengambilan ditentukan oleh pustakawan saat peminjaman diproses.</small></span></div>
                             </section>
-                            <label>
-                                <span>Catatan untuk pustakawan <em>(opsional)</em></span>
-                                <textarea name="note" rows="4" maxlength="300" placeholder="Tambahkan kebutuhan pengambilan bila diperlukan." disabled aria-disabled="true"></textarea>
-                            </label>
                         </div>
-                        <p class="loan-request-feedback" id="loan-form-feedback" data-loan-feedback role="status" aria-live="polite"></p>
 
                         <div class="loan-request-actions">
                             <a class="button button-light" href="{{ route('anggota.katalog') }}"><span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_back</span>Ganti buku dari katalog</a>
-                            <button class="button loan-request-submit" type="button" data-loan-submit disabled aria-disabled="true"><span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_forward</span>Pengajuan belum tersedia</button>
+                            <button class="button loan-request-submit" type="submit"><span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_forward</span>Ajukan Peminjaman</button>
                         </div>
                     </section>
                 </form>
@@ -160,19 +181,19 @@
                     <section class="loan-request-card loan-request-checks">
                         <header class="loan-request-card-heading">
                             <h3 id="loan-check-title"><span class="material-symbols-rounded member-icon" aria-hidden="true">verified_user</span>Pemeriksaan sistem</h3>
-                            <span>Belum lengkap</span>
+                            <span>Diperiksa saat pengajuan</span>
                         </header>
                         <p>Pemeriksaan berikut memakai data yang tersedia pada halaman ini.</p>
                         <ul>
                             <li class="is-ready"><span class="material-symbols-rounded member-icon" aria-hidden="true">inventory_2</span><span><strong>Stok koleksi fisik</strong><small>{{ $book->stock }} eksemplar tercatat tersedia.</small></span><b>Tersedia</b></li>
-                            <li class="is-pending"><span class="material-symbols-rounded member-icon" aria-hidden="true">verified_user</span><span><strong>Tunggakan dan sanksi</strong><small>Belum dapat diperiksa.</small></span><b>Menunggu</b></li>
-                            <li class="is-pending"><span class="material-symbols-rounded member-icon" aria-hidden="true">bookmarks</span><span><strong>Kuota peminjaman</strong><small>Belum dapat diperiksa.</small></span><b>Menunggu</b></li>
+                            <li class="is-pending"><span class="material-symbols-rounded member-icon" aria-hidden="true">verified_user</span><span><strong>Tunggakan dan sanksi</strong><small>Sistem memeriksa tagihan sebelum mengirim.</small></span><b>Dicek</b></li>
+                            <li class="is-pending"><span class="material-symbols-rounded member-icon" aria-hidden="true">bookmarks</span><span><strong>Kuota peminjaman</strong><small>Maksimal 3 peminjaman berjalan.</small></span><b>Dicek</b></li>
                         </ul>
                     </section>
 
-                    <section class="loan-request-notice" aria-label="Status pengajuan online">
+                    <section class="loan-request-notice" aria-label="Status pengajuan">
                         <span class="material-symbols-rounded member-icon" aria-hidden="true">wifi</span>
-                        <div><strong>Pengajuan online belum dapat diproses</strong><p>Endpoint pengajuan belum tersedia. Halaman ini tidak menyimpan transaksi atau mengirim data.</p></div>
+                        <div><strong>Pengajuan memerlukan validasi Petugas</strong><p>Pengajuan akan tercatat dan menunggu persetujuan Petugas.</p></div>
                     </section>
                 </aside>
             </div>
@@ -196,8 +217,8 @@
                 @foreach ($relatedBooks as $relatedBook)
                     <article class="catalog-card">
                         <div class="catalog-cover">
-                            @if ($relatedBook->cover)
-                                <img src="{{ \Illuminate\Support\Facades\Storage::url($relatedBook->cover) }}" alt="Sampul buku {{ $relatedBook->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                            @if ($relatedBook->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($relatedBook->cover))
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($relatedBook->cover) }}" alt="Sampul buku {{ $relatedBook->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                 <div class="catalog-cover-placeholder" hidden aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><span>{{ $relatedBook->kategori ?: 'Koleksi pustaka' }}</span></div>
                             @else
                                 <div class="catalog-cover-placeholder" aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><span>{{ $relatedBook->kategori ?: 'Koleksi pustaka' }}</span></div>

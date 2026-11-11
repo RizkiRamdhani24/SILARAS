@@ -13,7 +13,7 @@
     align-items: center;
     gap: 7px;
     color: #1d4ed8;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     letter-spacing: .04em;
 }
@@ -32,7 +32,7 @@
     max-width: 670px;
     margin: 0;
     color: #64748b;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .history-page-export {
@@ -47,7 +47,7 @@
     background: #fff;
     color: #94a3b8;
     cursor: not-allowed;
-    font-size: 10px;
+    font-size: 13px;
 }
 .history-page-export .member-icon {
     width: 16px;
@@ -73,7 +73,7 @@
     justify-content: space-between;
     gap: 10px;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     letter-spacing: .04em;
 }
 .history-page-metric header b {
@@ -97,7 +97,7 @@
     font-weight: 500;
 }
 .history-page-metric > strong small {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 400;
 }
 .history-page-metric > strong.is-green {
@@ -106,7 +106,7 @@
 .history-page-metric p {
     margin: 22px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.55;
 }
 .history-page-card {
@@ -140,7 +140,7 @@
 .history-page-card-heading p {
     margin: 5px 0 0;
     color: #64748b;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.5;
 }
 .history-page-card-heading > span {
@@ -175,7 +175,7 @@
     max-width: 430px;
     margin: 0 0 8px;
     color: #64748b;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .history-page-empty .button {
@@ -194,7 +194,7 @@
     padding: 14px 20px;
     background: #f8fafc;
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
     font-weight: 500;
     letter-spacing: .04em;
     text-align: left;
@@ -204,7 +204,7 @@
     padding: 17px 20px;
     border-top: 1px solid #eaf0f8;
     color: #475569;
-    font-size: 10px;
+    font-size: 13px;
     vertical-align: middle;
 }
 .history-page-table td:nth-child(2) {
@@ -213,7 +213,7 @@
 .history-page-table td strong {
     display: block;
     color: #0f172a;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1.45;
 }
@@ -221,7 +221,7 @@
     display: block;
     margin-top: 4px;
     color: #64748b;
-    font-size: 9px;
+    font-size: 13px;
     line-height: 1.45;
 }
 .history-page-table code {
@@ -243,7 +243,7 @@
     border-radius: 999px;
     background: #eff6ff;
     color: #2563eb;
-    font-size: 9px;
+    font-size: 13px;
     white-space: nowrap;
 }
 .history-page-status i {
@@ -287,13 +287,13 @@
     max-width: 650px;
     margin: 5px 0 0;
     color: #475569;
-    font-size: 10px;
+    font-size: 13px;
     line-height: 1.6;
 }
 .history-page-info a {
     align-self: center;
     color: #1d4ed8;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;

@@ -1,12 +1,13 @@
 @php
-    // Data petugas yang sedang login (guard "petugas"). Memakai nilai contoh jika belum login.
+    // Data petugas yang sedang login (guard "petugas").
     $petugas = auth('petugas')->user();
-    $namaPetugas = $petugas->nama_petugas ?? 'Eom Seonghyeon';
-    $shiftPetugas = ucfirst(strtolower($petugas->shift ?? 'pagi'));
-    $jamShift = ['pagi' => '08:00 - 15:00 WIB', 'sore' => '13:30 - 20:00 WIB'][strtolower($shiftPetugas)] ?? '';
+    $namaPetugas = $petugas->nama_petugas ?? 'Petugas';
     $inisial = collect(explode(' ', $namaPetugas))->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
-    // TODO backend: ganti dengan jumlah peminjaman berstatus "menunggu validasi".
-    $antreanPinjam = $antreanPinjam ?? 7;
+    $antreanPinjam = $antreanPinjam ?? (\Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+        ? \App\Models\Peminjaman::query()
+            ->where('status_peminjaman', \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI)
+            ->count()
+        : 0);
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -16,10 +17,13 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Petugas') · SILARAS</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-[#F4F6FB] text-[#0F1B3D] antialiased" style="font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif">
+<body class="petugas-page bg-[#F4F6FB] text-[#0F1B3D] antialiased" style="font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif">
     <a href="#konten" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">Lewati ke konten</a>
 
     <div class="min-h-screen lg:flex">
@@ -38,8 +42,10 @@
         </div>
     </div>
 
-    <div id="toast" role="status" aria-live="polite"
-         class="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 translate-y-2 rounded-xl bg-[#0F1B3D] px-4 py-3 text-sm font-medium text-white opacity-0 shadow-lg transition motion-reduce:transition-none"></div>
+    <div id="toast" class="silaras-toast" role="status" aria-live="polite" aria-hidden="true">
+        <span class="silaras-toast-icon" aria-hidden="true"><span>info</span></span>
+        <span class="silaras-toast-message"></span>
+    </div>
 
     @include('petugas.partials.scripts')
     @stack('scripts')

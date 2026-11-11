@@ -32,6 +32,8 @@
             <span class="absolute right-2.5 top-2.5 size-2 rounded-full bg-red-600 ring-2 ring-white"></span>
         </button>
 
-        <span class="grid size-10 place-items-center rounded-full bg-blue-700 text-sm font-bold text-white" title="{{ $namaPetugas }}">{{ $inisial }}</span>
+        <a href="{{ route('petugas.profile') }}"
+           class="grid size-10 place-items-center rounded-full bg-blue-700 text-sm font-bold text-white transition hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+           title="Buka profil {{ $namaPetugas }}" aria-label="Buka profil {{ $namaPetugas }}">{{ $inisial }}</a>
     </div>
 </header>

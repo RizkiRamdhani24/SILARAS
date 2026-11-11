@@ -37,7 +37,7 @@ Route::get('/', function (Request $request) {
 
         $books = $bookQuery->orderByDesc('stock')
             ->orderBy('judul_buku')
-            ->limit(4)
+            ->limit(12)
             ->get();
 
         $categories = Buku::query()

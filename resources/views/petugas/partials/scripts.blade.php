@@ -17,10 +17,15 @@
     let toastTimer;
     window.silarasToast = (pesan) => {
         const el = document.getElementById('toast');
-        el.textContent = pesan;
-        el.classList.remove('opacity-0', 'translate-y-2');
+        if (!el) return;
+        el.querySelector('.silaras-toast-message').textContent = pesan;
+        el.setAttribute('aria-hidden', 'false');
+        el.classList.add('is-visible');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => el.classList.add('opacity-0', 'translate-y-2'), 3000);
+        toastTimer = setTimeout(() => {
+            el.classList.remove('is-visible');
+            el.setAttribute('aria-hidden', 'true');
+        }, 3600);
     };
 
     // Formulir contoh: belum terhubung ke backend

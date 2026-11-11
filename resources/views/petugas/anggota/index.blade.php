@@ -4,38 +4,10 @@
 
 @php
     $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
-
-    $anggota = \Illuminate\Support\Facades\Schema::hasTable('anggota')
-        ? \App\Models\Anggota::query()->orderBy('nama_anggota')->get()->map(function ($member) {
-            $pinjam = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
-                ? \App\Models\Peminjaman::query()->where('id_anggota', $member->id_anggota)->whereIn('status_peminjaman', [
-                    \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI,
-                    \App\Models\Peminjaman::STATUS_DIPINJAM,
-                    \App\Models\Peminjaman::STATUS_TERLAMBAT,
-                    \App\Models\Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN,
-                ])->count()
-                : 0;
-
-            $status = $member->status_anggota === 'nonaktif' ? 'Ditangguhkan' : 'Aktif';
-            $cat = $member->status_anggota === 'nonaktif' ? 'tunggakan ditangguhkan' : 'bebas';
-            $catatan = $member->status_anggota === 'nonaktif' ? 'Akun nonaktif' : 'Tepat waktu';
-            $tone = $member->status_anggota === 'nonaktif' ? 'red' : 'blue';
-
-            return [
-                'id' => '#AGT-' . str_pad((string) $member->id_anggota, 3, '0', STR_PAD_LEFT),
-                'induk' => 'ID: ' . $member->id_anggota,
-                'nama' => $member->nama_anggota,
-                'sub' => $member->email_anggota,
-                'email' => $member->email_anggota,
-                'telp' => $member->no_telp ?? '-',
-                'pinjam' => $pinjam,
-                'catatan' => $catatan,
-                'tone' => $tone,
-                'status' => $status,
-                'cat' => $cat,
-            ];
-        })->all()
-        : [];
+    $totalAktif = $anggota->where('status', 'Aktif')->count();
+    $totalDitangguhkan = $anggota->where('status', 'Ditangguhkan')->count();
+    $totalTunggakan = $anggota->where('cat', 'tunggakan')->count();
+    $totalPinjaman = $anggota->sum('pinjam');
 
     $bar = ['blue' => 'bg-blue-700', 'amber' => 'bg-amber-500', 'red' => 'bg-red-600'];
     $teksCatatan = ['blue' => 'text-slate-500', 'amber' => 'text-amber-700', 'red' => 'text-red-600'];
@@ -47,6 +19,13 @@
 @endphp
 
 @section('content')
+    @if (session('success'))
+        <div role="status" class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</div>
+    @endif
+    @if (session('error'))
+        <div role="alert" class="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+    @endif
+
     <div class="flex flex-wrap items-start justify-between gap-4 pt-6">
         <div class="max-w-2xl">
             <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl">Kelola Data Anggota Perpustakaan</h1>
@@ -65,17 +44,17 @@
     </div>
 
     <section class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Ringkasan anggota">
-        @include('petugas.partials.stat-card', ['label' => 'Total terdaftar', 'value' => '1.845', 'icon' => 'users', 'tone' => 'blue', 'footer' => 'Database pustaka aktif terverifikasi', 'footerTone' => 'text-blue-700'])
-        @include('petugas.partials.stat-card', ['label' => 'Pinjaman berjalan', 'value' => '118', 'icon' => 'book', 'tone' => 'blue', 'footer' => '184 eksemplar beredar di luar • 64% kapasitas'])
-        @include('petugas.partials.stat-card', ['label' => 'Dengan tunggakan denda', 'value' => '14', 'icon' => 'borrow', 'tone' => 'red', 'valueTone' => 'text-red-600', 'labelTone' => 'text-red-600', 'footer' => 'Perlu tindak lanjut: '.$rp(142500), 'footerTone' => 'text-red-600'])
-        @include('petugas.partials.stat-card', ['label' => 'Pendaftaran bulan ini', 'value' => '64', 'icon' => 'user', 'tone' => 'amber', 'footer' => '+18% pertumbuhan dibanding September'])
+        @include('petugas.partials.stat-card', ['label' => 'Total terdaftar', 'value' => $anggota->count(), 'icon' => 'users', 'tone' => 'blue', 'footer' => 'Data anggota terdaftar'])
+        @include('petugas.partials.stat-card', ['label' => 'Pinjaman berjalan', 'value' => $totalPinjaman, 'icon' => 'book', 'tone' => 'blue', 'footer' => 'Termasuk pengajuan menunggu validasi'])
+        @include('petugas.partials.stat-card', ['label' => 'Dengan tunggakan denda', 'value' => $totalTunggakan, 'icon' => 'borrow', 'tone' => 'red', 'valueTone' => 'text-red-600', 'labelTone' => 'text-red-600', 'footer' => 'Perlu pelunasan'])
+        @include('petugas.partials.stat-card', ['label' => 'Akun aktif', 'value' => $totalAktif, 'icon' => 'user', 'tone' => 'amber', 'footer' => $totalDitangguhkan . ' akun nonaktif'])
     </section>
 
     <section class="mt-6 space-y-4" aria-labelledby="judul-tabel">
         <h2 id="judul-tabel" class="sr-only">Daftar anggota</h2>
         <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div data-tabs="#tabel-anggota" class="flex flex-wrap gap-2 text-sm font-semibold">
-                @foreach (['all' => 'Semua (1.845)', 'bebas' => 'Bebas denda (1.831)', 'tunggakan' => 'Ada tunggakan (14)', 'ditangguhkan' => 'Ditangguhkan (3)'] as $nilai => $label)
+                @foreach (['all' => 'Semua ('.$anggota->count().')', 'bebas' => 'Bebas denda ('.$anggota->where('cat', 'bebas')->count().')', 'tunggakan' => 'Ada tunggakan ('.$totalTunggakan.')', 'ditangguhkan' => 'Ditangguhkan ('.$totalDitangguhkan.')'] as $nilai => $label)
                     <button type="button" data-tab="{{ $nilai }}" data-active="{{ $nilai === 'all' ? 'true' : 'false' }}" aria-pressed="{{ $nilai === 'all' ? 'true' : 'false' }}"
                             class="rounded-xl bg-[#EEF1F8] px-4 py-2.5 text-slate-600 hover:bg-blue-50 data-[active=true]:bg-blue-700 data-[active=true]:text-white">{{ $label }}</button>
                 @endforeach
@@ -135,10 +114,12 @@
                                     <div class="flex justify-end gap-1 text-slate-500">
                                         <button type="button" data-demo-click="Tampilan contoh: ubah data {{ $a['nama'] }} belum terhubung." class="grid size-9 place-items-center rounded-lg hover:bg-blue-50 hover:text-blue-700" aria-label="Ubah {{ $a['nama'] }}">@include('petugas.partials.icon', ['name' => 'pencil', 'class' => 'size-4'])</button>
                                         <button type="button" data-demo-click="Tampilan contoh: kartu QR {{ $a['nama'] }} belum terhubung." class="grid size-9 place-items-center rounded-lg hover:bg-blue-50 hover:text-blue-700" aria-label="Kartu QR {{ $a['nama'] }}">@include('petugas.partials.icon', ['name' => 'qr', 'class' => 'size-4'])</button>
-                                        @if ($a['status'] === 'Ditangguhkan')
-                                            <button type="button" data-demo-click="Tampilan contoh: buka tangguhan {{ $a['nama'] }} belum terhubung." class="grid size-9 place-items-center rounded-lg text-blue-700 hover:bg-blue-50" aria-label="Buka tangguhan {{ $a['nama'] }}">@include('petugas.partials.icon', ['name' => 'lock', 'class' => 'size-4'])</button>
-                                        @else
-                                            <button type="button" data-demo-click="Tampilan contoh: tangguhkan {{ $a['nama'] }} belum terhubung." class="grid size-9 place-items-center rounded-lg hover:bg-red-50 hover:text-red-600" aria-label="Tangguhkan {{ $a['nama'] }}">@include('petugas.partials.icon', ['name' => 'ban', 'class' => 'size-4'])</button>
+                                        @if ($a['status'] === 'Aktif')
+                                            <form method="POST" action="{{ route('petugas.anggota.nonaktifkan', $a['id_anggota']) }}" data-confirm="Nonaktifkan akun {{ $a['nama'] }}?" data-confirm-title="Nonaktifkan anggota" data-confirm-variant="danger" data-confirm-label="Ya, nonaktifkan">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" @disabled(! $a['can_disable']) class="grid size-9 place-items-center rounded-lg hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Nonaktifkan {{ $a['nama'] }}" title="{{ $a['can_disable'] ? 'Nonaktifkan akun' : 'Harus bebas pinjaman aktif dan tunggakan denda' }}">@include('petugas.partials.icon', ['name' => 'ban', 'class' => 'size-4'])</button>
+                                            </form>
                                         @endif
                                     </div>
                                 </td>

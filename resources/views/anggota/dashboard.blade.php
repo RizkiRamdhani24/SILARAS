@@ -6,20 +6,12 @@
     {{-- ===== PAGE: DASHBOARD ANGGOTA ===== --}}
     @php
         $memberName = $member?->nama_anggota;
-        $loansProvided = isset($loans);
         $loans = $loans ?? collect();
         $activeLoans = $activeLoans ?? collect();
         $returnedLoans = $loans->where('status_peminjaman', \App\Models\Peminjaman::STATUS_DIKEMBALIKAN);
         $nearestDueDate = $activeLoans->pluck('tgl_jatuh_tempo')->filter()->sort()->first();
         $dueDays = $nearestDueDate ? now()->startOfDay()->diffInDays($nearestDueDate, false) : null;
-        $fineDataAvailable = $loansProvided
-            && $loans->isNotEmpty()
-            && $loans->every(fn ($loan) => $loan->relationLoaded('pengembalian'));
-        $unpaidFine = $fineDataAvailable
-            ? $loans->pluck('pengembalian')->filter()
-                ->where('status_denda', \App\Models\Pengembalian::DENDA_BELUM_DIBAYAR)
-                ->sum(fn ($return) => (float) $return->denda)
-            : null;
+        $dendaRingkasan = $dendaRingkasan ?? null;
     @endphp
     {{-- SECTION: Welcome banner --}}
     <section class="member-hero" aria-labelledby="welcome-title">
@@ -34,6 +26,24 @@
                 <i aria-hidden="true"></i>
                 <span>Perpustakaan Akademik SILARAS</span>
             </div>
+            @if ($dendaRingkasan)
+                <a class="member-fine-alert is-{{ $dendaRingkasan['warna'] }}" href="{{ route('anggota.denda.index') }}">
+                    <span class="material-symbols-rounded member-icon" aria-hidden="true">
+                        {{ $dendaRingkasan['warna'] === 'merah' ? 'error' : ($dendaRingkasan['warna'] === 'kuning' ? 'warning' : 'verified_user') }}
+                    </span>
+                    <span>
+                        <strong>{{ $dendaRingkasan['pesan'] }}</strong>
+                        <small>
+                            @if ($dendaRingkasan['nominal'] > 0)
+                                Total tagihan belum lunas: Rp{{ number_format($dendaRingkasan['nominal'], 0, ',', '.') }}
+                            @else
+                                Lihat informasi tagihan dan pembayaran
+                            @endif
+                        </small>
+                    </span>
+                    <span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_forward</span>
+                </a>
+            @endif
         </div>
         <div class="member-hero-actions">
             <a class="button button-primary" href="{{ route('anggota.katalog') }}"><span class="material-symbols-rounded member-icon" aria-hidden="true">search</span>Cari Buku di Katalog Publik <span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_forward</span></a>
@@ -66,8 +76,8 @@
         </article>
         <article class="stat-card">
             <header><span>TUNGGAKAN DENDA</span><b><span class="material-symbols-rounded member-icon" aria-hidden="true">verified_user</span></b></header>
-            <strong class="{{ $unpaidFine !== null && (float) $unpaidFine === 0.0 ? 'stat-green' : '' }}">{{ $unpaidFine !== null ? 'Rp' . number_format($unpaidFine, 0, ',', '.') : 'Belum tersedia' }}</strong>
-            <p>{{ $unpaidFine !== null ? ($unpaidFine > 0 ? 'Denda yang belum dibayar' : 'Tidak ada tunggakan denda') : 'Informasi denda belum dapat diverifikasi' }}</p>
+            <strong class="{{ $dendaRingkasan && $dendaRingkasan['nominal'] <= 0 ? 'stat-green' : '' }}">{{ $dendaRingkasan ? 'Rp' . number_format($dendaRingkasan['nominal'], 0, ',', '.') : 'Belum tersedia' }}</strong>
+            <p>{{ $dendaRingkasan ? ($dendaRingkasan['nominal'] > 0 ? 'Tagihan denda belum lunas' : 'Tidak ada tunggakan denda') : 'Informasi denda belum dapat diverifikasi' }}</p>
         </article>
         <article class="stat-card">
             <header><span>KOLEKSI DIBACA</span><b><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span></b></header>
@@ -94,8 +104,8 @@
                             <article class="loan-item">
                                 <div class="loan-book">
                                     <div class="loan-cover" aria-hidden="true">
-                                        @if ($book?->cover)
-                                            <img src="{{ \Illuminate\Support\Facades\Storage::url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                                        @if ($book?->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
+                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                             <span class="material-symbols-rounded member-icon" hidden aria-hidden="true">menu_book</span>
                                         @else
                                             <span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>

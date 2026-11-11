@@ -13,6 +13,10 @@ Route::middleware('auth:anggota')
 
         Route::post('/peminjaman', [PeminjamanController::class, 'store'])
             ->name('peminjaman.store');
+
+        Route::patch('/peminjaman/{id}/batalkan', [PeminjamanController::class, 'batalkan'])
+            ->whereNumber('id')
+            ->name('peminjaman.batalkan');
     });
 
 // ROUTE UNTUK PETUGAS
@@ -22,6 +26,10 @@ Route::middleware('role.petugas')
     ->group(function () {
         Route::get('/peminjaman', [PeminjamanController::class, 'indexPetugas'])
             ->name('peminjaman.index');
+
+        Route::get('/peminjaman/{id}', [PeminjamanController::class, 'showPetugas'])
+            ->whereNumber('id')
+            ->name('peminjaman.show');
 
         Route::patch('/peminjaman/{id}/setujui', [PeminjamanController::class, 'setujui'])
             ->name('peminjaman.setujui');

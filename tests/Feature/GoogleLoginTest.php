@@ -31,7 +31,6 @@ class GoogleLoginTest extends TestCase
             $table->id('id_petugas');
             $table->string('nama_petugas');
             $table->string('email_petugas')->unique();
-            $table->string('shift')->nullable();
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
@@ -81,14 +80,16 @@ class GoogleLoginTest extends TestCase
     public function test_existing_member_can_sign_in_with_a_verified_google_email(): void
     {
         $anggota = Anggota::create([
-            'nama_anggota' => 'Anggota Terdaftar',
+            'nama_anggota' => 'Nama Hasil Edit',
             'email_anggota' => 'anggota@example.test',
+            'no_telp' => '+62 812-3456-7890',
             'password' => 'password-hanya-untuk-uji',
         ]);
 
         Socialite::fake('google', GoogleUser::fake([
             'email' => 'ANGGOTA@example.test',
             'email_verified' => true,
+            'name' => 'Nama dari Google yang Lama',
         ]));
 
         $this->get(route('auth.google.callback'))
@@ -96,6 +97,8 @@ class GoogleLoginTest extends TestCase
 
         $this->assertAuthenticatedAs($anggota, 'anggota');
         $this->assertDatabaseCount('anggota', 1);
+        $this->assertSame('Nama Hasil Edit', $anggota->fresh()->nama_anggota);
+        $this->assertSame('+62 812-3456-7890', $anggota->fresh()->no_telp);
     }
 
     public function test_google_sign_in_rejects_unverified_email(): void

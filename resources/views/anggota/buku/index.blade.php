@@ -46,7 +46,7 @@
             @foreach ($buku as $item)
                 <div style="border:1px solid #e5e7eb; border-radius:12px; padding:18px; background:white;">
 
-                    @if ($item->cover)
+                    @if ($item->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($item->cover))
                         <img
                             src="{{ asset('storage/' . $item->cover) }}"
                             alt="{{ $item->judul_buku }}"
@@ -54,7 +54,7 @@
                         >
                     @else
                         <div style="height:180px; display:flex; align-items:center; justify-content:center; background:#f3f4f6; border-radius:8px; margin-bottom:12px;">
-                            <span>Buku SILARAS</span>
+                            <span>{{ $item->kategori ?: 'Koleksi pustaka' }}</span>
                         </div>
                     @endif
 
@@ -75,6 +75,12 @@
                         <form method="POST" action="{{ route('anggota.peminjaman.store') }}">
                             @csrf
                             <input type="hidden" name="id_buku" value="{{ $item->id_buku }}">
+                            <label for="durasi-{{ $item->id_buku }}">Durasi peminjaman</label>
+                            <select id="durasi-{{ $item->id_buku }}" name="durasi_peminjaman_hari" required>
+                                <option value="7">7 hari</option>
+                                <option value="14">14 hari</option>
+                                <option value="30">30 hari</option>
+                            </select>
 
                             <button type="submit"
                                 style="width:100%; padding:11px; background:#2563eb; color:white; border:0; border-radius:8px; cursor:pointer;">

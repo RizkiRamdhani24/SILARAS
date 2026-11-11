@@ -19,6 +19,7 @@
                 <a href="#faq">Pusat FAQ</a>
                 <a href="#faq">Panduan Anggota</a>
                 <a href="#kontak">Hubungi Kami</a>
+                <a href="#lokasi">Lokasi Perpustakaan</a>
             </nav>
             <nav aria-label="Kebijakan">
                 <strong>KEBIJAKAN</strong>
