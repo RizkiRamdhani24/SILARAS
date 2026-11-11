@@ -1,4 +1,3 @@
-
 # Stage 1: Build frontend assets
 FROM node:22-alpine AS frontend
 
@@ -24,7 +23,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bcmath \
     zip \
     opcache \
-    && a2enmod rewrite headers \
+    && rm -f /etc/apache2/mods-enabled/mpm_event.* \
+             /etc/apache2/mods-enabled/mpm_worker.* \
+    && a2enmod mpm_prefork rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -68,5 +69,5 @@ RUN mkdir -p storage/framework/cache \
 
 EXPOSE 10000
 
-CMD ["apache2-foreground"]
-
+# Pakai port dari platform (Railway/Render) kalau ada, default 10000
+CMD ["sh", "-c", "PORT=${PORT:-10000}; sed -ri \"s/Listen [0-9]+/Listen ${PORT}/\" /etc/apache2/ports.conf; sed -ri \"s/<VirtualHost \\*:[0-9]+>/<VirtualHost *:${PORT}>/\" /etc/apache2/sites-available/000-default.conf; exec apache2-foreground"]
