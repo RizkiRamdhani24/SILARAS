@@ -7,7 +7,6 @@
 **Branch:** `feature/auth`
 
 **Tanggung jawab:**
-
 - Mengembangkan sistem autentikasi dan login.
 - Mengelola role dan hak akses pengguna.
 - Menangani struktur database dan migrasi.
@@ -20,7 +19,6 @@
 **Branch:** `feature/frontend-anggota`
 
 **Tanggung jawab:**
-
 - Mengembangkan halaman frontend anggota.
 - Mengimplementasikan sidebar anggota sesuai desain UI/UX.
 - Mengembangkan antarmuka fitur anggota.
@@ -31,7 +29,6 @@
 **Branch:** `feature/frontend-petugas`
 
 **Tanggung jawab:**
-
 - Mengembangkan halaman frontend petugas.
 - Mengimplementasikan sidebar petugas sesuai desain UI/UX.
 - Mengembangkan antarmuka validasi peminjaman.
@@ -43,7 +40,6 @@
 **Branch:** `feature/book-borrowing`
 
 **Tanggung jawab:**
-
 - Mengembangkan backend pengelolaan data buku.
 - Mengembangkan proses peminjaman buku.
 - Mengimplementasikan validasi peminjaman di sisi backend.
@@ -55,7 +51,6 @@
 **Branch:** `feature/return-history`
 
 **Tanggung jawab:**
-
 - Mengembangkan backend pengembalian buku.
 - Mengimplementasikan perhitungan denda keterlambatan.
 - Mengembangkan riwayat peminjaman dan pengembalian.
@@ -64,24 +59,24 @@
 
 ## 2. Pemetaan Fitur dan Penanggung Jawab
 
-| Fitur                          | Penanggung Jawab | Branch                     |
-| ------------------------------ | ---------------- | -------------------------- |
-| Authentication dan Login       | Rizki            | `feature/auth`             |
-| Role dan Hak Akses             | Rizki            | `feature/auth`             |
-| Database dan Migrasi           | Rizki            | `feature/auth`             |
-| Core System dan Integrasi      | Rizki            | `feature/auth`             |
-| Frontend Anggota               | Dimas            | `feature/frontend-anggota` |
-| Sidebar Anggota                | Dimas            | `feature/frontend-anggota` |
-| Frontend Petugas               | Danar            | `feature/frontend-petugas` |
-| Sidebar Petugas                | Danar            | `feature/frontend-petugas` |
-| Validasi Peminjaman — Frontend | Danar            | `feature/frontend-petugas` |
-| Pengelolaan Buku — Backend     | Exel             | `feature/book-borrowing`   |
-| Peminjaman — Backend           | Exel             | `feature/book-borrowing`   |
-| Validasi Peminjaman — Backend  | Exel             | `feature/book-borrowing`   |
-| Pengembalian — Frontend        | Danar            | `feature/frontend-petugas` |
-| Pengembalian — Backend         | Herlyan          | `feature/return-history`   |
-| Denda Keterlambatan            | Herlyan          | `feature/return-history`   |
-| Riwayat Transaksi              | Herlyan          | `feature/return-history`   |
+| Fitur | Penanggung Jawab | Branch |
+|---|---|---|
+| Authentication dan Login | Rizki | `feature/auth` |
+| Role dan Hak Akses | Rizki | `feature/auth` |
+| Database dan Migrasi | Rizki | `feature/auth` |
+| Core System dan Integrasi | Rizki | `feature/auth` |
+| Frontend Anggota | Dimas | `feature/frontend-anggota` |
+| Sidebar Anggota | Dimas | `feature/frontend-anggota` |
+| Frontend Petugas | Danar | `feature/frontend-petugas` |
+| Sidebar Petugas | Danar | `feature/frontend-petugas` |
+| Validasi Peminjaman — Frontend | Danar | `feature/frontend-petugas` |
+| Pengelolaan Buku — Backend | Exel | `feature/book-borrowing` |
+| Peminjaman — Backend | Exel | `feature/book-borrowing` |
+| Validasi Peminjaman — Backend | Exel | `feature/book-borrowing` |
+| Pengembalian — Frontend | Danar | `feature/frontend-petugas` |
+| Pengembalian — Backend | Herlyan | `feature/return-history` |
+| Denda Keterlambatan | Herlyan | `feature/return-history` |
+| Riwayat Transaksi | Herlyan | `feature/return-history` |
 
 ## 3. Struktur Branch Git
 
