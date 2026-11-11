@@ -14,6 +14,12 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response->assertOk()
+            ->assertSee('Akses Pustaka Akademik Pintar')
+            ->assertSee('Cari Buku')
+            ->assertSee('Jelajahi Jenis Koleksi')
+            ->assertSee('Login')
+            ->assertSee(route('login'))
+            ->assertDontSee(route('petugas.login'));
     }
 }
