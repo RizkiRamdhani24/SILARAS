@@ -1,6 +1,6 @@
 
 # ==========================================
-# STAGE 1: BUILD FRONTEND ASSETS
+# STAGE 1: BUILD VITE ASSETS
 # ==========================================
 FROM node:22-alpine AS frontend
 
@@ -14,11 +14,13 @@ RUN npm run build
 
 
 # ==========================================
-# STAGE 2: LARAVEL + APACHE
+# STAGE 2: LARAVEL BACKEND
 # ==========================================
 FROM php:8.2-apache
 
-# Install system dependencies and PHP extensions
+WORKDIR /var/www/html
+
+# Install PHP dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libzip-dev \
@@ -29,30 +31,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         bcmath \
         zip \
         opcache \
-    \
-    # Remove ALL enabled Apache MPM modules
-    && rm -f /etc/apache2/mods-enabled/mpm_*.load \
-             /etc/apache2/mods-enabled/mpm_*.conf \
-    \
-    # Enable exactly ONE MPM: prefork
-    && a2enmod mpm_prefork \
-    && a2enmod rewrite headers \
-    \
-    # Verify active MPM
-    && apache2ctl -M | grep mpm \
-    \
     && rm -rf /var/lib/apt/lists/*
 
+# Aktifkan modul Apache yang diperlukan.
+# Jangan mengubah MPM bawaan image resmi.
+RUN a2enmod rewrite headers
+
+# Verifikasi konfigurasi Apache bawaan
+RUN apache2ctl -M && apache2ctl -t
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www/html
-
-
-# ==========================================
-# INSTALL LARAVEL DEPENDENCIES
-# ==========================================
+# Install Laravel dependencies
 COPY composer.json composer.lock ./
 
 RUN composer install \
@@ -62,56 +53,34 @@ RUN composer install \
     --optimize-autoloader \
     --no-scripts
 
-
-# ==========================================
-# COPY APPLICATION SOURCE
-# ==========================================
+# Copy Laravel source
 COPY . .
 
-
-# Copy built frontend assets
+# Copy hasil build Vite
 COPY --from=frontend /app/public/build ./public/build
 
+# Apache document root diarahkan ke public Laravel
+RUN set -eux; \
+    sed -ri 's!/var/www/html!/var/www/html/public!g' \
+        /etc/apache2/sites-available/000-default.conf; \
+    sed -ri 's/AllowOverride None/AllowOverride All/' \
+        /etc/apache2/apache2.conf; \
+    echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
-# ==========================================
-# APACHE CONFIGURATION
-# ==========================================
-RUN sed -ri 's!/var/www/html!/var/www/html/public!g' \
-        /etc/apache2/sites-available/000-default.conf \
-    \
-    && sed -ri 's/AllowOverride None/AllowOverride All/' \
-        /etc/apache2/apache2.conf \
-    \
-    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
-
-
-# ==========================================
-# LARAVEL PERMISSIONS & OPTIMIZATION
-# ==========================================
-RUN mkdir -p \
+# Laravel permissions dan optimasi
+RUN set -eux; \
+    mkdir -p \
         storage/framework/cache \
         storage/framework/sessions \
         storage/framework/views \
         storage/logs \
-        bootstrap/cache \
-    \
-    && chown -R www-data:www-data storage bootstrap/cache \
-    \
-    && composer dump-autoload \
-        --no-dev \
-        --optimize \
-    \
-    && php artisan package:discover --ansi
+        bootstrap/cache; \
+    chown -R www-data:www-data storage bootstrap/cache; \
+    composer dump-autoload --no-dev --optimize; \
+    php artisan package:discover --ansi
 
+# Railway port
+EXPOSE 8080
 
-# ==========================================
-# RAILWAY PORT
-# ==========================================
-EXPOSE 10000
-
-CMD ["sh", "-c", "\
-    PORT=${PORT:-10000}; \
-    sed -ri 's/Listen [0-9]+/Listen '${PORT}'/' /etc/apache2/ports.conf; \
-    sed -ri 's/<VirtualHost \\*:[0-9]+>/<VirtualHost *:'${PORT}'>' /etc/apache2/sites-available/000-default.conf; \
-    exec apache2-foreground \
-"]
+# Runtime: gunakan PORT dari Railway
+CMD ["sh", "-c", "set -eu; PORT=${PORT:-8080}; sed -i \"s/^Listen 80$/Listen ${PORT}/\" /etc/apache2/ports.conf; sed -i \"s#<VirtualHost \\*:80>#<VirtualHost *:${PORT}>#\" /etc/apache2/sites-available/000-default.conf; echo \"Starting Apache on port ${PORT}\"; apache2ctl -t; exec apache2-foreground"]
