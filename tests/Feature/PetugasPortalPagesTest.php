@@ -200,7 +200,7 @@ class PetugasPortalPagesTest extends TestCase
         $this->assertNotNull($book);
         $this->assertNotNull($book->cover);
         $this->assertNull($book->pdf);
-        Storage::disk('public')->assertExists($book->cover);
+        $this->assertTrue(Storage::disk('public')->exists($book->cover));
     }
 
     public function test_petugas_can_open_denda_details(): void
