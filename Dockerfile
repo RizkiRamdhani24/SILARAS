@@ -118,20 +118,7 @@ EXPOSE 8080
 # ==========================================
 # RUNTIME CONFIGURATION
 # ==========================================
-CMD ["sh", "-c", "set -eu; \
-    PORT=${PORT:-8080}; \
-    case \"${PORT}\" in ''|*[!0-9]*) echo \"Invalid PORT: ${PORT}\" >&2; exit 1 ;; esac; \
-    test \"${PORT}\" -ge 1; \
-    test \"${PORT}\" -le 65535; \
-    echo \"Starting Apache on port ${PORT}\"; \
-    sed -i -E \"s/^Listen [0-9]+$/Listen ${PORT}/\" /etc/apache2/ports.conf; \
-    sed -i -E \"s#<VirtualHost \\*:([0-9]+)>#<VirtualHost *:${PORT}>#\" /etc/apache2/sites-available/000-default.conf; \
-    APACHE_MODULES=$(apache2ctl -M); \
-    printf '%s\\n' \"${APACHE_MODULES}\"; \
-    MPM_COUNT=$(printf '%s\\n' \"${APACHE_MODULES}\" | awk '/mpm_(event|worker|prefork)_module/ { count++ } END { print count+0 }'); \
-    PREFORK_COUNT=$(printf '%s\\n' \"${APACHE_MODULES}\" | awk '/mpm_prefork_module/ { count++ } END { print count+0 }'); \
-    echo \"Loaded Apache MPM count: ${MPM_COUNT}\"; \
-    test \"${MPM_COUNT}\" -eq 1; \
-    test \"${PREFORK_COUNT}\" -eq 1; \
-    apache2ctl -t; \
-    exec apache2-foreground"]
+COPY start.sh /usr/local/bin/start.sh
+RUN sed -i 's/\r$//' /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
+
+CMD ["start.sh"]
