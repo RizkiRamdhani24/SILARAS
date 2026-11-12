@@ -1,4 +1,3 @@
-
 # ==========================================
 # STAGE 1: BUILD VITE ASSETS
 # ==========================================
@@ -50,6 +49,12 @@ RUN set -eux; \
     test "$MPM_COUNT" -eq 1; \
     test "$PREFORK_COUNT" -eq 1; \
     apache2ctl -t
+
+
+# ==========================================
+# PHP INI (PRODUCTION)
+# ==========================================
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 
 # ==========================================
