@@ -63,7 +63,7 @@ class BukuController extends Controller
         $storedFiles = [];
         try {
             if ($request->hasFile('cover')) {
-                $validated['cover'] = $request->file('cover')->store('buku/cover', 'public');
+                $validated['cover'] = $request->file('cover')->store('cover', 's3');
                 if (! $validated['cover']) {
                     throw new RuntimeException('Gagal menyimpan gambar cover buku.');
                 }
@@ -71,7 +71,7 @@ class BukuController extends Controller
             }
 
             if ($request->hasFile('pdf')) {
-                $validated['pdf'] = $request->file('pdf')->store('buku/pdf', 'local');
+                $validated['pdf'] = $request->file('pdf')->store('pdf', 's3');
                 if (! $validated['pdf']) {
                     throw new RuntimeException('Gagal menyimpan file PDF buku.');
                 }
@@ -184,7 +184,7 @@ public function update(Request $request, $id)
     $storedFiles = [];
     try {
         if ($request->hasFile('cover')) {
-            $validated['cover'] = $request->file('cover')->store('buku/cover', 'public');
+            $validated['cover'] = $request->file('cover')->store('cover', 's3');
             if (! $validated['cover']) {
                 throw new RuntimeException('Gagal menyimpan gambar cover buku.');
             }
@@ -192,7 +192,7 @@ public function update(Request $request, $id)
         }
 
         if ($request->hasFile('pdf')) {
-            $validated['pdf'] = $request->file('pdf')->store('buku/pdf', 'local');
+            $validated['pdf'] = $request->file('pdf')->store('pdf', 's3');
             if (! $validated['pdf']) {
                 throw new RuntimeException('Gagal menyimpan file PDF buku.');
             }
@@ -210,7 +210,7 @@ public function update(Request $request, $id)
     }
 
     if ($request->hasFile('cover') && $previousCover) {
-        Storage::disk('public')->delete($previousCover);
+        Storage::disk('s3')->delete($previousCover);
     }
 
     if ($request->expectsJson()) {
@@ -277,9 +277,9 @@ public function bacaPdf(int $id)
     $buku = $query->findOrFail($id);
 
     abort_unless($buku->pdf, 404);
-    abort_unless(Storage::disk('local')->exists($buku->pdf), 404);
+    abort_unless(Storage::disk('s3')->exists($buku->pdf), 404);
 
-    return Storage::disk('local')->response(
+    return Storage::disk('s3')->response(
         $buku->pdf,
         null,
         [
@@ -299,9 +299,9 @@ public function unduhPdf(int $id)
     $buku = $query->findOrFail($id);
 
     abort_unless($buku->pdf, 404);
-    abort_unless(Storage::disk('local')->exists($buku->pdf), 404);
+    abort_unless(Storage::disk('s3')->exists($buku->pdf), 404);
 
-    return Storage::disk('local')->download(
+    return Storage::disk('s3')->download(
         $buku->pdf,
         \Illuminate\Support\Str::slug($buku->judul_buku) . '.pdf',
         ['X-Content-Type-Options' => 'nosniff']

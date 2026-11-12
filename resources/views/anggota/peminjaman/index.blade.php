@@ -65,8 +65,8 @@
                 @endphp
                 <article class="loan-page-book mt-4">
                     <div class="loan-page-cover" aria-hidden="true">
-                        @if ($book?->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
-                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="">
+                        @if ($book?->cover)
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($book->cover) }}" alt="">
                         @else
                             <div><span class="material-symbols-rounded member-icon">menu_book</span><span>{{ $book?->kategori ?: 'Koleksi pustaka' }}</span></div>
                         @endif

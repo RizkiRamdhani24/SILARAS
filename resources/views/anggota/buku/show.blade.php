@@ -12,8 +12,8 @@
     <section class="book-detail" aria-labelledby="book-title">
         <div class="book-detail-cover-column">
             <div class="book-detail-cover">
-                @if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
-                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                @if ($book->cover)
+                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                     <div class="catalog-cover-placeholder" hidden aria-label="Sampul buku tidak tersedia">
                         <span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>
                         <span>{{ $book->kategori ?: 'Koleksi pustaka' }}</span>
@@ -132,8 +132,8 @@
 
                         <div class="loan-request-book">
                             <div class="loan-request-cover">
-                                @if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                                @if ($book->cover)
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                     <div hidden aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><small>Sampul tidak tersedia</small></div>
                                 @else
                                     <div aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><small>Sampul tidak tersedia</small></div>
@@ -217,8 +217,8 @@
                 @foreach ($relatedBooks as $relatedBook)
                     <article class="catalog-card">
                         <div class="catalog-cover">
-                            @if ($relatedBook->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($relatedBook->cover))
-                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($relatedBook->cover) }}" alt="Sampul buku {{ $relatedBook->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                            @if ($relatedBook->cover)
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($relatedBook->cover) }}" alt="Sampul buku {{ $relatedBook->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                 <div class="catalog-cover-placeholder" hidden aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><span>{{ $relatedBook->kategori ?: 'Koleksi pustaka' }}</span></div>
                             @else
                                 <div class="catalog-cover-placeholder" aria-label="Sampul buku tidak tersedia"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span><span>{{ $relatedBook->kategori ?: 'Koleksi pustaka' }}</span></div>

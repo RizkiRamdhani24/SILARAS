@@ -50,7 +50,7 @@
             <div class="sm:col-span-2">
                 <label for="cover" class="text-sm font-semibold">Gambar cover (opsional, maks. 5 MB)</label>
                 <input id="cover" type="file" name="cover" accept="image/jpeg,image/png,image/webp" class="mt-1 block w-full text-sm">
-                @if ($buku->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($buku->cover))<p class="mt-1 text-xs text-slate-500">Cover saat ini:</p><img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($buku->cover) }}" alt="Cover {{ $buku->judul_buku }}" class="mt-2 h-32 rounded-lg object-cover">@elseif ($buku->cover)<p class="mt-1 text-xs text-amber-700">File cover sebelumnya tidak ditemukan. Unggah cover baru untuk menggantinya.</p>@endif
+                @if ($buku->cover)<p class="mt-1 text-xs text-slate-500">Cover saat ini:</p><img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($buku->cover) }}" alt="Cover {{ $buku->judul_buku }}" class="mt-2 h-32 rounded-lg object-cover">@elseif ($buku->cover)<p class="mt-1 text-xs text-amber-700">File cover sebelumnya tidak ditemukan. Unggah cover baru untuk menggantinya.</p>@endif
                 @error('cover')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
             <div class="sm:col-span-2">

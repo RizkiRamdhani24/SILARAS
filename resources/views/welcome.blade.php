@@ -90,8 +90,8 @@
         @foreach ($books as $book)
         <article class="silaras-landing-book-card">
             <div class="silaras-landing-book-cover">
-                @if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
-                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}">
+                @if ($book->cover)
+                <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}">
                 @else
                 <div class="silaras-landing-cover-placeholder" aria-label="Sampul buku tidak tersedia">
                     <span class="silaras-landing-cover-mark" aria-hidden="true">S</span>

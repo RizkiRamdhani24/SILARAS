@@ -52,7 +52,7 @@ class DendaController extends Controller
             403
         );
 
-        $path = Storage::disk('local')->path('qris/qris.png');
+        $path = Storage::disk('s3')->path('qris/qris.png');
         if (! is_file($path)) {
             Log::error('QRIS image file not found.', [
                 'path' => $path,
@@ -211,7 +211,7 @@ class DendaController extends Controller
                     ]);
                 }
 
-                $path = $request->file('bukti_pembayaran')->store('bukti-pembayaran', 'local');
+                $path = $request->file('bukti_pembayaran')->store('bukti-pembayaran', 's3');
                 if (! $path) {
                     throw new RuntimeException('Bukti pembayaran gagal disimpan.');
                 }
@@ -237,7 +237,7 @@ class DendaController extends Controller
             }, 3);
         } catch (Throwable $exception) {
             if ($path !== null) {
-                Storage::disk('local')->delete($path);
+                Storage::disk('s3')->delete($path);
             }
 
             throw $exception;
@@ -292,9 +292,9 @@ class DendaController extends Controller
     public function lihatBukti(PembayaranDenda $pembayaran)
     {
         abort_unless($pembayaran->bukti_pembayaran, 404);
-        abort_unless(Storage::disk('local')->exists($pembayaran->bukti_pembayaran), 404);
+        abort_unless(Storage::disk('s3')->exists($pembayaran->bukti_pembayaran), 404);
 
-        return Storage::disk('local')->response(
+        return Storage::disk('s3')->response(
             $pembayaran->bukti_pembayaran,
             null,
             ['X-Content-Type-Options' => 'nosniff'],

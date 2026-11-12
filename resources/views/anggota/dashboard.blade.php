@@ -104,8 +104,8 @@
                             <article class="loan-item">
                                 <div class="loan-book">
                                     <div class="loan-cover" aria-hidden="true">
-                                        @if ($book?->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover))
-                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
+                                        @if ($book?->cover)
+                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($book->cover) }}" alt="Sampul buku {{ $book->judul_buku }}" onerror="this.hidden = true; this.nextElementSibling.hidden = false;">
                                             <span class="material-symbols-rounded member-icon" hidden aria-hidden="true">menu_book</span>
                                         @else
                                             <span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>
