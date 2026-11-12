@@ -160,7 +160,7 @@ class LoanReturnWorkflowTest extends TestCase
             $this->post(route('anggota.peminjaman.store'), [
                 'id_buku' => $book->id_buku,
                 'durasi_peminjaman_hari' => 14,
-            ])->assertRedirect(route('anggota.katalog'));
+            ])->assertRedirect(route('anggota.peminjaman.index'));
         }
 
         $this->post(route('anggota.peminjaman.store'), [
@@ -174,6 +174,36 @@ class LoanReturnWorkflowTest extends TestCase
             'id_buku' => $book->id_buku,
             'durasi_peminjaman_hari' => 14,
         ]);
+    }
+
+    public function test_member_with_unpaid_fine_sees_blocking_alert_and_cannot_submit_loan(): void
+    {
+        $member = $this->createMember('Anggota Menunggak');
+        $book = $this->createBook();
+        $loan = $this->createLoan($member, $this->createBook(), Peminjaman::STATUS_DIKEMBALIKAN);
+        DB::table('tagihan_denda')->insert([
+            'id_peminjaman' => $loan->id_peminjaman,
+            'id_anggota' => $member->id_anggota,
+            'nominal_tagihan' => 5000,
+            'tgl_tagihan' => today()->toDateString(),
+            'status_tagihan' => 'belum_lunas',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->actingAs($member, 'anggota');
+
+        $message = 'Akun Anda sedang dibekukan karena masih memiliki tagihan denda. Harap bayar denda terlebih dahulu sebelum meminjam buku.';
+
+        $this->from(route('anggota.buku.show', $book->id_buku))
+            ->followingRedirects()
+            ->post(route('anggota.peminjaman.store'), [
+                'id_buku' => $book->id_buku,
+                'durasi_peminjaman_hari' => 14,
+            ])
+            ->assertOk()
+            ->assertSee('data-member-alert="'.$message.'"', false);
+
+        $this->assertDatabaseCount('peminjaman', 1);
     }
 
     public function test_approval_rechecks_the_member_loan_limit_and_rejects_empty_stock_with_reason_and_notification(): void

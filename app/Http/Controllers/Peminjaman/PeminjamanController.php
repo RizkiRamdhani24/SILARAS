@@ -65,6 +65,13 @@ class PeminjamanController extends Controller
                 ], $hasil === 'akun_nonaktif' ? 403 : 422);
             }
 
+            if ($hasil === 'denda') {
+                return back()->with(
+                    'borrow_blocked',
+                    'Akun Anda sedang dibekukan karena masih memiliki tagihan denda. Harap bayar denda terlebih dahulu sebelum meminjam buku.'
+                );
+            }
+
             return back()->with('error', $message);
         }
 
@@ -77,7 +84,7 @@ class PeminjamanController extends Controller
         }
 
         return redirect()
-            ->route('anggota.katalog')
+            ->route('anggota.peminjaman.index')
             ->with(
                 'success',
                 'Pengajuan peminjaman berhasil dikirim. Silakan tunggu validasi petugas.'

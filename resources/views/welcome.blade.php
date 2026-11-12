@@ -245,8 +245,7 @@
     <div class="silaras-landing-section-heading">
         <div>
             <span class="silaras-landing-kicker">CERITA PENGGUNA</span>
-            <h2 id="testimonials-title">Pengalaman Menjelajah SILARAS</h2>
-            <p>Contoh testimoni untuk ilustrasi tampilan, bukan ulasan pengguna sebenarnya.</p>
+            <h2 id="testimonials-title">Lihat Kata Pengguna</h2>
         </div>
     </div>
     <div class="silaras-landing-testimonials-viewport" aria-label="★★★★★trasi bergerak">

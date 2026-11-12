@@ -1,7 +1,7 @@
 {{-- COMPONENT: Sidebar anggota dan drawer mobile --}}
 <aside class="member-sidebar" id="member-sidebar" aria-label="Sidebar anggota" aria-hidden="false" tabindex="-1">
     <div class="member-sidebar-mobile-header">
-        <a class="member-sidebar-brand" href="{{ route('home') }}" aria-label="SILARAS, kembali ke beranda" data-member-sidebar-brand>
+        <a class="member-sidebar-brand" aria-label="SILARAS, kembali ke beranda" data-member-sidebar-brand>
             <img src="{{ asset('images/silaras-logo.png') }}" alt="" width="42" height="38">
             <span><strong>SILARAS</strong><small>Sistem Layanan Pustaka Cerdas</small></span>
         </a>
@@ -20,17 +20,17 @@
 
     <div class="member-sidebar-bottom">
         <section class="sidebar-help">
-            <h2><span class="material-symbols-rounded member-icon" aria-hidden="true">support_agent</span>Bantuan Layanan</h2>
+            <h2><span class="material-symbols-rounded member-icon" aria-hidden="true">hera</span>Bantuan Layanan</h2>
             <p>Butuh asistensi pencarian rak fisik atau reservasi referensi?</p>
             <a href="{{ route('home') }}#kontak">Hubungi Pustakawan <span class="material-symbols-rounded member-icon" aria-hidden="true">arrow_forward</span></a>
         </section>
         @auth('anggota')
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button class="sidebar-logout" type="submit"><span class="material-symbols-rounded member-icon" aria-hidden="true">logout</span>Keluar Portal</button>
-            </form>
+        <form action="{{ route('logout') }}" method="POST">
+            @csrf
+            <button class="sidebar-logout" type="submit"><span class="material-symbols-rounded member-icon" aria-hidden="true">logout</span>Keluar Portal</button>
+        </form>
         @else
-            <button class="sidebar-logout is-preview" type="button" disabled><span class="material-symbols-rounded member-icon" aria-hidden="true">logout</span>Keluar Portal</button>
+        <button class="sidebar-logout is-preview" type="button" disabled><span class="material-symbols-rounded member-icon" aria-hidden="true">logout</span>Keluar Portal</button>
         @endauth
     </div>
 </aside>

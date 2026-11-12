@@ -24,6 +24,10 @@
 
     {{-- SECTION: Main content --}}
     <main class="member-main" id="main-content">
+        @if (session('borrow_blocked'))
+            <div hidden data-member-alert="{{ session('borrow_blocked') }}"></div>
+        @endif
+
         @yield('content')
 
         {{-- COMPONENT: Footer --}}

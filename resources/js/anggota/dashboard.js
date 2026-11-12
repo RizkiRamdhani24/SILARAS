@@ -1,5 +1,14 @@
 import '../ui-dialogs';
 
+const memberAlert = document.querySelector('[data-member-alert]');
+if (memberAlert instanceof HTMLElement && memberAlert.dataset.memberAlert) {
+    window.silarasAlert(memberAlert.dataset.memberAlert, {
+        title: 'Akun dibekukan',
+        confirmLabel: 'Mengerti',
+        variant: 'danger',
+    });
+}
+
 // =========================================
 // MODULE: DOM references
 // Purpose: Resolve shared controls used by member pages.

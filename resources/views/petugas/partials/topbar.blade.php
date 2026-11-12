@@ -1,7 +1,7 @@
 <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-100 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
     <button type="button" data-sidebar-toggle
             class="grid size-10 place-items-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
-            aria-label="Buka menu" aria-controls="sidebar">
+            aria-label="Buka menu" aria-controls="sidebar" aria-expanded="false">
         @include('petugas.partials.icon', ['name' => 'menu'])
     </button>
 

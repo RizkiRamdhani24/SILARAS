@@ -4,14 +4,35 @@
     // Menu samping (layar kecil)
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
-    const setSidebar = (open) => {
-        sidebar.classList.toggle('-translate-x-full', !open);
-        overlay.classList.toggle('hidden', !open);
+    const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+    const sidebarClose = document.querySelector('[data-sidebar-close]');
+    const mobileSidebar = window.matchMedia('(max-width: 1023px)');
+    const setSidebar = (open, restoreFocus = true) => {
+        sidebar.classList.toggle('is-open', open && mobileSidebar.matches);
+        overlay.classList.toggle('is-visible', open && mobileSidebar.matches);
+        sidebar.setAttribute('aria-hidden', String(!open && mobileSidebar.matches));
+        overlay.setAttribute('aria-hidden', String(!open));
+        sidebarToggle.setAttribute('aria-expanded', String(open && mobileSidebar.matches));
+        sidebarToggle.setAttribute('aria-label', open ? 'Tutup menu petugas' : 'Buka menu petugas');
+        document.body.classList.toggle('sidebar-open', open && mobileSidebar.matches);
+        if (open && mobileSidebar.matches) {
+            sidebarClose.focus();
+        } else if (restoreFocus && mobileSidebar.matches) {
+            sidebarToggle.focus();
+        }
     };
     document.querySelectorAll('[data-sidebar-toggle]').forEach((btn) =>
-        btn.addEventListener('click', () => setSidebar(sidebar.classList.contains('-translate-x-full'))));
+        btn.addEventListener('click', () => setSidebar(!sidebar.classList.contains('is-open'))));
+    sidebarClose.addEventListener('click', () => setSidebar(false));
     overlay.addEventListener('click', () => setSidebar(false));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setSidebar(false); });
+    sidebar.addEventListener('click', (event) => {
+        if (event.target.closest('a')) setSidebar(false, false);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sidebar.classList.contains('is-open')) setSidebar(false);
+    });
+    mobileSidebar.addEventListener('change', () => setSidebar(false, false));
+    setSidebar(false, false);
 
     // Notifikasi singkat
     let toastTimer;

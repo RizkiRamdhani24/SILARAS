@@ -70,13 +70,15 @@ const openDialog = (message, options = {}) => new Promise((resolve) => {
     const cancelButton = wrapper.querySelector('[data-dialog-cancel]');
     const icon = wrapper.querySelector('[data-dialog-icon]');
     const destructive = options.variant === 'danger';
+    const alertOnly = options.mode === 'alert';
 
     title.textContent = options.title || (destructive ? 'Konfirmasi tindakan' : 'Mohon konfirmasi');
     description.textContent = message;
-    confirmButton.textContent = options.confirmLabel || (destructive ? 'Ya, lanjutkan' : 'Ya, lanjutkan');
+    confirmButton.textContent = options.confirmLabel || (alertOnly ? 'Mengerti' : 'Ya, lanjutkan');
     confirmButton.classList.toggle('is-danger', destructive);
     icon.classList.toggle('is-danger', destructive);
     icon.querySelector('span').textContent = destructive ? 'warning' : 'info';
+    cancelButton.hidden = alertOnly;
     wrapper.setAttribute('aria-hidden', 'false');
     wrapper.classList.add('is-open');
 
@@ -99,7 +101,11 @@ const openDialog = (message, options = {}) => new Promise((resolve) => {
             cancel();
         } else if (event.key === 'Tab') {
             event.preventDefault();
-            (document.activeElement === cancelButton ? confirmButton : cancelButton).focus();
+            if (alertOnly) {
+                confirmButton.focus();
+            } else {
+                (document.activeElement === cancelButton ? confirmButton : cancelButton).focus();
+            }
         }
     };
 
@@ -132,3 +138,4 @@ document.addEventListener('submit', async (event) => {
 });
 
 window.silarasConfirm = (message, options = {}) => openDialog(message, options);
+window.silarasAlert = (message, options = {}) => openDialog(message, { ...options, mode: 'alert' });
