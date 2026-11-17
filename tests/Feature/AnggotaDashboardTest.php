@@ -45,7 +45,6 @@ class AnggotaDashboardTest extends TestCase
             $table->string('isbn')->nullable();
             $table->string('rak')->nullable();
             $table->string('cover')->nullable();
-            $table->string('pdf')->nullable();
             $table->boolean('diarsipkan')->default(false);
             $table->timestamps();
         });
@@ -124,55 +123,6 @@ class AnggotaDashboardTest extends TestCase
             ->get(route('anggota.katalog'))
             ->assertOk()
             ->assertSee($book->judul_buku);
-    }
-
-    public function test_private_book_pdf_remains_readable_before_book_archive_migration(): void
-    {
-        Storage::fake('local');
-        $member = $this->createMember();
-        $book = $this->createBook('PDF Sebelum Migration', ['pdf' => 'buku/pdf/sample.pdf']);
-        Storage::disk('local')->put($book->pdf, '%PDF-1.4 test content');
-        Schema::table('buku', function (Blueprint $table) {
-            $table->dropColumn('diarsipkan');
-        });
-
-        $this->actingAs($member, 'anggota')
-            ->get(route('anggota.buku.pdf', $book->getKey()))
-            ->assertOk()
-            ->assertHeader('content-type', 'application/pdf')
-            ->assertStreamedContent('%PDF-1.4 test content');
-    }
-
-    public function test_authenticated_member_can_download_private_book_pdf(): void
-    {
-        Storage::fake('local');
-        $member = $this->createMember();
-        $book = $this->createBook('Buku Uji Unduh', ['pdf' => 'buku/pdf/sample.pdf']);
-        Storage::disk('local')->put($book->pdf, '%PDF-1.4 test content');
-
-        $this->actingAs($member, 'anggota')
-            ->get(route('anggota.buku.pdf.download', $book->getKey()))
-            ->assertOk()
-            ->assertHeader('content-type', 'application/pdf')
-            ->assertHeader('content-disposition', 'attachment; filename=buku-uji-unduh.pdf')
-            ->assertStreamedContent('%PDF-1.4 test content');
-    }
-
-    public function test_book_pdf_download_stays_protected_from_guests_and_petugas(): void
-    {
-        $book = $this->createBook('Buku Unduhan Terlindungi', ['pdf' => 'buku/pdf/private.pdf']);
-
-        $this->get(route('anggota.buku.pdf.download', $book->getKey()))
-            ->assertRedirect('/login');
-
-        $petugas = new Petugas([
-            'nama_petugas' => 'Petugas Uji',
-            'email_petugas' => 'petugas-download@example.test',
-        ]);
-
-        $this->actingAs($petugas, 'petugas')
-            ->get(route('anggota.buku.pdf.download', $book->getKey()))
-            ->assertForbidden();
     }
 
     public function test_member_book_detail_stays_protected(): void
@@ -371,7 +321,7 @@ class AnggotaDashboardTest extends TestCase
 
     public function test_missing_cover_file_uses_placeholder_in_catalog_and_book_detail(): void
     {
-        Storage::fake('public');
+        Storage::fake('s3');
         $member = $this->createMember();
         $book = $this->createBook('Cover Hilang', [
             'cover' => 'buku/cover/cover-tidak-ada.jpg',
@@ -381,19 +331,21 @@ class AnggotaDashboardTest extends TestCase
             ->get(route('anggota.katalog'))
             ->assertOk()
             ->assertSee('Sampul buku tidak tersedia')
-            ->assertDontSee('/storage/buku/cover/cover-tidak-ada.jpg');
+            ->assertSee('/storage/buku/cover/cover-tidak-ada.jpg')
+            ->assertSee('this.nextElementSibling.hidden = false;', false);
 
         $this->actingAs($member, 'anggota')
             ->get(route('anggota.buku.show', $book->getKey()))
             ->assertOk()
             ->assertSee('Sampul buku tidak tersedia')
-            ->assertDontSee('/storage/buku/cover/cover-tidak-ada.jpg');
+            ->assertSee('/storage/buku/cover/cover-tidak-ada.jpg')
+            ->assertSee('this.nextElementSibling.hidden = false;', false);
     }
 
-    public function test_existing_cover_is_served_from_public_storage(): void
+    public function test_existing_cover_is_served_from_s3_storage(): void
     {
-        Storage::fake('public');
-        Storage::disk('public')->put('buku/cover/cover-tersedia.jpg', 'cover');
+        Storage::fake('s3');
+        Storage::disk('s3')->put('buku/cover/cover-tersedia.jpg', 'cover');
         $member = $this->createMember();
         $this->createBook('Cover Publik', [
             'cover' => 'buku/cover/cover-tersedia.jpg',
@@ -402,7 +354,7 @@ class AnggotaDashboardTest extends TestCase
         $this->actingAs($member, 'anggota')
             ->get(route('anggota.katalog'))
             ->assertOk()
-            ->assertSee('/storage/buku/cover/cover-tersedia.jpg');
+            ->assertSee(Storage::disk('s3')->url('buku/cover/cover-tersedia.jpg'));
     }
 
     public function test_related_books_come_only_from_selected_category_database_records(): void

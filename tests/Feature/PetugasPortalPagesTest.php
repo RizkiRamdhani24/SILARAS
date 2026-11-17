@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\LogAktivitasException;
 use App\Models\Anggota;
 use App\Models\Petugas;
+use App\Services\LogAktivitasService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,8 @@ class PetugasPortalPagesTest extends TestCase
     {
         parent::setUp();
 
+        Storage::fake('s3');
+
         Schema::create('anggota', function (Blueprint $table) {
             $table->id('id_anggota');
             $table->string('nama_anggota');
@@ -25,8 +29,18 @@ class PetugasPortalPagesTest extends TestCase
         Schema::create('petugas', function (Blueprint $table) {
             $table->id('id_petugas');
             $table->string('nama_petugas');
+            $table->timestamps();
         });
 
+        Schema::create('log_aktivitas', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('petugas_id');
+            $table->string('nama_petugas');
+            $table->string('aksi');
+            $table->string('objek');
+            $table->string('keterangan')->nullable();
+            $table->timestamp('waktu');
+        });
         Schema::create('buku', function (Blueprint $table) {
             $table->id('id_buku');
             $table->string('judul_buku');
@@ -117,6 +131,7 @@ class PetugasPortalPagesTest extends TestCase
                 'pengembalian',
                 'peminjaman',
                 'buku',
+                'log_aktivitas',
                 'petugas',
                 'anggota',
             ] as $table
@@ -160,10 +175,20 @@ class PetugasPortalPagesTest extends TestCase
             $this->get($uri)->assertNotFound();
         }
 
+        DB::table('buku')->insert([
+            'judul_buku' => 'Buku Tanpa Field PDF API',
+            'pengarang' => 'Penulis Uji',
+            'stock' => 1,
+            'pdf' => 'buku/pdf/legacy.pdf',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $this->getJson('/api/buku')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data', []);
+            ->assertJsonPath('data.0.judul_buku', 'Buku Tanpa Field PDF API')
+            ->assertJsonMissingPath('data.0.pdf');
     }
 
     public function test_anggota_cannot_access_petugas_management_pages(): void
@@ -182,11 +207,11 @@ class PetugasPortalPagesTest extends TestCase
         }
     }
 
-    public function test_petugas_can_create_book_with_optional_pdf_and_cover_image(): void
+    public function test_petugas_can_create_book_with_cover_image(): void
     {
-        Storage::fake('public');
-        Storage::fake('local');
-        $this->actingAs(new Petugas(['nama_petugas' => 'Petugas Uji']), 'petugas');
+        Storage::fake('s3');
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas Uji']);
+        $this->actingAs($staff, 'petugas');
 
         $this->post(route('petugas.buku.store'), [
             'judul_buku' => 'Buku Dengan Cover',
@@ -199,8 +224,74 @@ class PetugasPortalPagesTest extends TestCase
 
         $this->assertNotNull($book);
         $this->assertNotNull($book->cover);
-        $this->assertNull($book->pdf);
-        $this->assertTrue(Storage::disk('public')->exists($book->cover));
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'tambah',
+            'objek' => 'buku',
+            'keterangan' => 'Buku Dengan Cover',
+        ]);
+        Storage::disk('s3')->assertExists($book->cover);
+    }
+
+    public function test_book_create_rolls_back_and_removes_uploaded_cover_when_activity_logging_fails(): void
+    {
+        Storage::fake('s3');
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas Uji']);
+        $this->actingAs($staff, 'petugas');
+
+        $this->mock(LogAktivitasService::class, function ($mock): void {
+            $mock->shouldReceive('catat')
+                ->once()
+                ->andThrow(new LogAktivitasException());
+        });
+
+        $response = $this->from(route('petugas.kelola-buku.create'))
+            ->post(route('petugas.buku.store'), [
+                'judul_buku' => 'Buku Tidak Tersimpan',
+                'pengarang' => 'Penulis Uji',
+                'stock' => 1,
+                'cover' => UploadedFile::fake()->create('cover-gagal.jpg', 10, 'image/jpeg'),
+            ]);
+
+        $response->assertRedirect(route('petugas.kelola-buku.create'))
+            ->assertSessionHas('error');
+        $this->assertDatabaseMissing('buku', ['judul_buku' => 'Buku Tidak Tersimpan']);
+        $this->assertDatabaseCount('log_aktivitas', 0);
+        $this->assertCount(0, Storage::disk('s3')->allFiles('cover'));
+    }
+
+    public function test_book_update_and_archive_are_logged_with_the_required_actions(): void
+    {
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas Uji']);
+        $bookId = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Log',
+            'pengarang' => 'Penulis',
+            'stock' => 1,
+            'diarsipkan' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+
+        $this->actingAs($staff, 'petugas')
+            ->put(route('petugas.kelola-buku.update', $bookId), [
+                'judul_buku' => 'Buku Log Diubah',
+                'pengarang' => 'Penulis',
+                'stock' => 1,
+            ])
+            ->assertRedirect(route('petugas.kelola-buku.index'));
+
+        $this->delete(route('petugas.kelola-buku.destroy', $bookId))
+            ->assertRedirect(route('petugas.kelola-buku.index'));
+
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'ubah',
+            'objek' => 'buku',
+            'keterangan' => 'Buku Log Diubah',
+        ]);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'hapus',
+            'objek' => 'buku',
+            'keterangan' => 'Buku Log Diubah',
+        ]);
     }
 
     public function test_petugas_can_open_denda_details(): void

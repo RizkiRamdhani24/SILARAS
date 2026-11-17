@@ -577,13 +577,13 @@ class LoanReturnWorkflowTest extends TestCase
         Anggota $member,
         Buku $book,
         string $status = Peminjaman::STATUS_DIPINJAM,
-        string $dueDate = '2026-11-14'
+        ?string $dueDate = null
     ): Peminjaman {
         return Peminjaman::create([
             'id_buku' => $book->id_buku,
             'id_anggota' => $member->id_anggota,
             'tgl_peminjaman' => today()->toDateString(),
-            'tgl_jatuh_tempo' => $dueDate,
+            'tgl_jatuh_tempo' => $dueDate ?? today()->addDays(7)->toDateString(),
             'durasi_peminjaman_hari' => 7,
             'status_peminjaman' => $status,
         ]);

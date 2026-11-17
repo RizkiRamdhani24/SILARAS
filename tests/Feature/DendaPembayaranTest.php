@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\LogAktivitasException;
 use App\Models\Anggota;
 use App\Models\Buku;
 use App\Models\PembayaranDenda;
@@ -10,6 +11,7 @@ use App\Models\Pengembalian;
 use App\Models\Petugas;
 use App\Models\TagihanDenda;
 use App\Services\DendaService;
+use App\Services\LogAktivitasService;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
@@ -25,6 +27,8 @@ class DendaPembayaranTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Storage::fake('s3');
 
         Schema::create('anggota', function (Blueprint $table) {
             $table->id('id_anggota');
@@ -43,6 +47,15 @@ class DendaPembayaranTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::create('log_aktivitas', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('petugas_id');
+            $table->string('nama_petugas');
+            $table->string('aksi');
+            $table->string('objek');
+            $table->string('keterangan')->nullable();
+            $table->timestamp('waktu');
+        });
         Schema::create('buku', function (Blueprint $table) {
             $table->id('id_buku');
             $table->string('judul_buku');
@@ -139,6 +152,7 @@ class DendaPembayaranTest extends TestCase
         foreach ([
             'notifikasi',
             'pengaturan',
+            'log_aktivitas',
             'pembayaran_denda',
             'tagihan_denda',
             'pengembalian',
@@ -155,7 +169,7 @@ class DendaPembayaranTest extends TestCase
 
     public function test_member_must_submit_one_pending_full_qris_payment_with_proof(): void
     {
-        Storage::fake('local');
+        Storage::fake('s3');
         $member = $this->createMember('Anggota Pertama');
         $bill = $this->createBill($member);
         $this->actingAs($member, 'anggota');
@@ -170,7 +184,7 @@ class DendaPembayaranTest extends TestCase
         $this->assertSame('menunggu_verifikasi', $payment->status_pembayaran);
         $this->assertSame('qris', $payment->metode_pembayaran);
         $this->assertNotNull($payment->bukti_pembayaran);
-        Storage::disk('local')->assertExists($payment->bukti_pembayaran);
+        Storage::disk('s3')->assertExists($payment->bukti_pembayaran);
         $this->assertSame(10000, app(DendaService::class)->sisaTagihanDalamSen($bill->fresh()));
         $this->assertSame('belum_lunas', $bill->fresh()->status_tagihan);
 
@@ -197,9 +211,9 @@ class DendaPembayaranTest extends TestCase
 
     public function test_qris_image_is_private_and_available_only_to_the_bill_owner(): void
     {
-        Storage::fake('local');
+        Storage::fake('s3');
         $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/iwAAAABJRU5ErkJggg==');
-        Storage::disk('local')->put('qris/qris.png', $png);
+        Storage::disk('s3')->put('qris/qris.png', $png);
 
         $member = $this->createMember('Anggota Pertama');
         $otherMember = $this->createMember('Anggota Kedua');
@@ -234,7 +248,7 @@ class DendaPembayaranTest extends TestCase
 
     public function test_missing_qris_file_is_logged_and_returns_a_clear_404(): void
     {
-        Storage::fake('local');
+        Storage::fake('s3');
         Log::spy();
 
         $member = $this->createMember('Anggota Pertama');
@@ -247,7 +261,7 @@ class DendaPembayaranTest extends TestCase
         Log::shouldHaveReceived('error')
             ->once()
             ->with('QRIS image file not found.', [
-                'path' => Storage::disk('local')->path('qris/qris.png'),
+                'path' => Storage::disk('s3')->path('qris/qris.png'),
                 'tagihan_id' => $bill->id_tagihan_denda,
             ]);
     }
@@ -270,12 +284,12 @@ class DendaPembayaranTest extends TestCase
 
     public function test_staff_can_open_uploaded_payment_proof_using_a_same_origin_link(): void
     {
-        Storage::fake('local');
+        Storage::fake('s3');
         $member = $this->createMember('Anggota Pertama');
         $staff = $this->createStaff();
         $bill = $this->createBill($member);
         $proofPath = 'bukti-pembayaran/bukti.png';
-        Storage::disk('local')->put($proofPath, 'proof image data');
+        Storage::disk('s3')->put($proofPath, 'proof image data');
         $payment = $this->createPayment($bill, $member, '100.00');
         $payment->update(['bukti_pembayaran' => $proofPath]);
         $this->actingAs($staff, 'petugas');
@@ -339,6 +353,11 @@ class DendaPembayaranTest extends TestCase
         $this->assertSame(0, app(DendaService::class)->sisaTagihanDalamSen($bill->fresh()));
         $this->assertSame('lunas', $bill->fresh()->status_tagihan);
         $this->assertSame(Pengembalian::DENDA_LUNAS, $return->fresh()->status_denda);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'ubah',
+            'objek' => 'denda',
+            'keterangan' => 'Pembayaran #'.$fullPayment->getKey().' diterima',
+        ]);
 
         $this->patch(route('petugas.denda.pembayaran.verifikasi', $fullPayment), [
             'status_pembayaran' => 'diverifikasi',
@@ -361,11 +380,16 @@ class DendaPembayaranTest extends TestCase
         $this->assertSame(10000, app(DendaService::class)->sisaTagihanDalamSen($bill->fresh()));
         $this->assertSame('belum_lunas', $bill->fresh()->status_tagihan);
         $this->assertSame('ditolak', $payment->fresh()->status_pembayaran);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'ubah',
+            'objek' => 'denda',
+            'keterangan' => 'Pembayaran #'.$payment->getKey().' ditolak',
+        ]);
     }
 
     public function test_one_pending_payment_per_bill_is_enforced_by_controller(): void
     {
-        Storage::fake('local');
+        Storage::fake('s3');
         $member = $this->createMember('Anggota Uji');
         $staff = $this->createStaff();
         $bill = $this->createBill($member);
@@ -407,6 +431,115 @@ class DendaPembayaranTest extends TestCase
         $this->assertSame('diverifikasi', $payment->status_pembayaran);
         $this->assertSame((int) $staff->id_petugas, (int) $payment->id_petugas_verifikasi);
         $this->assertSame('lunas', $bill->fresh()->status_tagihan);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'tambah',
+            'objek' => 'denda',
+            'keterangan' => 'Pembayaran tunai #'.$bill->getKey(),
+        ]);
+    }
+
+    public function test_tariff_update_is_logged_as_a_setting_change(): void
+    {
+        $staff = $this->createStaff();
+
+        $this->actingAs($staff, 'petugas')
+            ->post(route('petugas.denda.tarif.update'), [
+                'tarif_denda_per_hari' => 7500,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('pengaturan', [
+            'kunci' => 'tarif_denda_per_hari',
+            'nilai' => '7500',
+        ]);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'ubah',
+            'objek' => 'pengaturan',
+            'keterangan' => 'Tarif denda per hari',
+        ]);
+    }
+
+    public function test_tariff_update_rolls_back_when_activity_logging_fails(): void
+    {
+        $staff = $this->createStaff();
+        $this->actingAs($staff, 'petugas');
+        $this->mock(LogAktivitasService::class, function ($mock): void {
+            $mock->shouldReceive('catat')
+                ->once()
+                ->andThrow(new LogAktivitasException());
+        });
+
+        $this->from('/petugas/denda')
+            ->post(route('petugas.denda.tarif.update'), [
+                'tarif_denda_per_hari' => 7500,
+            ])
+            ->assertRedirect('/petugas/denda')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('pengaturan', [
+            'kunci' => 'tarif_denda_per_hari',
+            'nilai' => '5000',
+        ]);
+        $this->assertDatabaseCount('log_aktivitas', 0);
+    }
+
+    public function test_member_deactivation_is_logged_as_delete_with_nonaktif_note(): void
+    {
+        $member = $this->createMember('Anggota Dinonaktifkan');
+        $staff = $this->createStaff();
+
+        $this->actingAs($staff, 'petugas')
+            ->patch(route('petugas.anggota.nonaktifkan', $member->getKey()))
+            ->assertRedirect();
+
+        $this->assertSame(Anggota::STATUS_NONAKTIF, $member->fresh()->status_anggota);
+        $this->assertDatabaseHas('log_aktivitas', [
+            'aksi' => 'hapus',
+            'objek' => 'anggota',
+            'keterangan' => 'nonaktif',
+        ]);
+    }
+
+    public function test_member_deactivation_rolls_back_when_activity_logging_fails(): void
+    {
+        $member = $this->createMember('Anggota Tetap Aktif');
+        $staff = $this->createStaff();
+        $this->actingAs($staff, 'petugas');
+        $this->mock(LogAktivitasService::class, function ($mock): void {
+            $mock->shouldReceive('catat')
+                ->once()
+                ->andThrow(new LogAktivitasException());
+        });
+
+        $this->from('/petugas/anggota')
+            ->patch(route('petugas.anggota.nonaktifkan', $member->getKey()))
+            ->assertRedirect('/petugas/anggota')
+            ->assertSessionHas('error');
+
+        $this->assertSame(Anggota::STATUS_AKTIF, $member->fresh()->status_anggota);
+        $this->assertDatabaseCount('log_aktivitas', 0);
+    }
+
+    public function test_cash_payment_rolls_back_when_activity_logging_fails(): void
+    {
+        $member = $this->createMember('Anggota Denda');
+        $staff = $this->createStaff();
+        $bill = $this->createBill($member);
+        $this->actingAs($staff, 'petugas');
+        $this->mock(LogAktivitasService::class, function ($mock): void {
+            $mock->shouldReceive('catat')
+                ->once()
+                ->andThrow(new LogAktivitasException());
+        });
+
+        $this->from('/petugas/denda')
+            ->post(route('petugas.denda.pembayaran.tunai', $bill))
+            ->assertRedirect('/petugas/denda')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseCount('pembayaran_denda', 0);
+        $this->assertSame('belum_lunas', $bill->fresh()->status_tagihan);
+        $this->assertDatabaseCount('log_aktivitas', 0);
     }
 
     public function test_zero_value_legacy_payment_is_not_automatically_processed(): void
