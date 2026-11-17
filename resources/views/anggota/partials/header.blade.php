@@ -13,10 +13,10 @@
             <span class="material-symbols-rounded member-icon" aria-hidden="true">calendar_month</span>
             {{ now()->format('l, j F Y') }}
         </p>
-        <form class="member-search" action="{{ route('anggota.katalog') }}" method="GET" role="search" data-member-search>
+        <form class="member-search" action="{{ route(request()->routeIs('anggota.ebook.*') ? 'anggota.ebook.index' : 'anggota.katalog') }}" method="GET" role="search" data-member-search>
             <span class="material-symbols-rounded member-icon" aria-hidden="true">search</span>
-            <label class="sr-only" for="member-search">Cari buku</label>
-            <input id="member-search" type="search" name="q" value="{{ request()->routeIs('anggota.katalog', 'anggota.buku.*') ? request('q', '') : '' }}" placeholder="Cari Judul, Penulis, Kategori..">
+            <label class="sr-only" for="member-search">{{ request()->routeIs('anggota.ebook.*') ? 'Cari ebook' : 'Cari buku' }}</label>
+            <input id="member-search" type="search" name="q" value="{{ request()->routeIs('anggota.katalog', 'anggota.buku.*', 'anggota.ebook.*') ? request('q', '') : '' }}" placeholder="{{ request()->routeIs('anggota.ebook.*') ? 'Cari judul atau penulis ebook..' : 'Cari Judul, Penulis, Kategori..' }}">
         </form>
         @auth('anggota')
         <form action="{{ route('logout') }}" method="POST">

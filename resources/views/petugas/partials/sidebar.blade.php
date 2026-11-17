@@ -2,6 +2,9 @@
     $menu = [
         ['label' => 'Dashboard', 'path' => 'petugas/dashboard', 'icon' => 'dashboard'],
         ['label' => 'Kelola Buku', 'path' => 'petugas/buku', 'icon' => 'book'],
+        ['label' => 'Kelola Ebook', 'path' => 'petugas/ebook', 'icon' => 'book'],
+        ['label' => 'Unduhan Ebook', 'path' => 'petugas/ebook/unduhan', 'icon' => 'history'],
+        ['label' => 'Log Aktivitas', 'path' => 'petugas/log-aktivitas', 'icon' => 'history'],
         ['label' => 'Kelola Anggota', 'path' => 'petugas/anggota', 'icon' => 'users'],
         ['label' => 'Peminjaman', 'path' => 'petugas/peminjaman', 'icon' => 'borrow', 'badge' => $antreanPinjam],
         ['label' => 'Pengembalian', 'path' => 'petugas/pengembalian', 'icon' => 'return'],
@@ -27,7 +30,11 @@
     <nav class="petugas-sidebar-nav" aria-label="Menu layanan petugas">
         <p>Menu Layanan</p>
         @foreach ($menu as $item)
-            @php $aktif = request()->is($item['path'].'*'); @endphp
+            @php
+                $aktif = $item['path'] === 'petugas/ebook'
+                    ? request()->is('petugas/ebook', 'petugas/ebook/tambah', 'petugas/ebook/*/edit')
+                    : request()->is($item['path'].'*');
+            @endphp
             <a href="{{ url('/'.$item['path']) }}"
                @if ($aktif) aria-current="page" @endif
                @class(['is-active' => $aktif])>

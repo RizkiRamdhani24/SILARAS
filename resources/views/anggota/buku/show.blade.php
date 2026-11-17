@@ -63,23 +63,6 @@
         </div>
     </section>
 
-    @if ($book->pdf)
-        <section class="book-description mt-6" aria-labelledby="book-pdf-title">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 id="book-pdf-title"><span class="material-symbols-rounded member-icon" aria-hidden="true">menu_book</span>Baca Buku Online</h2>
-                <a class="button button-primary" href="{{ route('anggota.buku.pdf.download', $book->id_buku) }}" download>
-                    <span class="material-symbols-rounded member-icon" aria-hidden="true">download</span>
-                    Unduh PDF
-                </a>
-            </div>
-            <iframe
-                title="Pratinjau PDF {{ $book->judul_buku }}"
-                src="{{ route('anggota.buku.pdf', $book->id_buku) }}"
-                class="mt-4 h-[82vh] min-h-[640px] w-full rounded-xl border border-slate-200"
-            ></iframe>
-        </section>
-    @endif
-
     {{-- SECTION: Loan request preview --}}
     @if ($book->stock > 0)
         <section class="loan-request" id="loan-request" aria-labelledby="loan-request-title">

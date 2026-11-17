@@ -53,12 +53,6 @@
                 @if ($buku->cover)<p class="mt-1 text-xs text-slate-500">Cover saat ini:</p><img src="{{ \Illuminate\Support\Facades\Storage::disk('s3')->url($buku->cover) }}" alt="Cover {{ $buku->judul_buku }}" class="mt-2 h-32 rounded-lg object-cover">@elseif ($buku->cover)<p class="mt-1 text-xs text-amber-700">File cover sebelumnya tidak ditemukan. Unggah cover baru untuk menggantinya.</p>@endif
                 @error('cover')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
-            <div class="sm:col-span-2">
-                <label for="pdf" class="text-sm font-semibold">PDF buku (opsional, maks. 50 MB)</label>
-                <input id="pdf" type="file" name="pdf" accept="application/pdf" class="mt-1 block w-full text-sm">
-                @if ($buku->pdf)<p class="mt-1 text-xs text-slate-500">PDF sudah tersedia. Kosongkan untuk mempertahankan file saat ini.</p>@endif
-                @error('pdf')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-            </div>
             <div class="flex flex-wrap gap-2 sm:col-span-2">
                 <button type="submit" class="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">Simpan perubahan</button>
                 <a href="{{ route('petugas.buku') }}" class="rounded-xl bg-[#EEF1F8] px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-200">Batal</a>

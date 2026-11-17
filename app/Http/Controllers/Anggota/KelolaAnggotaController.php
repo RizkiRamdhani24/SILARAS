@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Anggota;
 
+use App\Exceptions\LogAktivitasException;
 use App\Http\Controllers\Controller;
 use App\Models\Anggota;
 use App\Models\Peminjaman;
 use App\Services\DendaService;
+use App\Services\LogAktivitasService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -24,8 +26,8 @@ class KelolaAnggotaController extends Controller
 
                 return [
                     'id_anggota' => $member->getKey(),
-                    'id' => '#AGT-' . str_pad((string) $member->getKey(), 3, '0', STR_PAD_LEFT),
-                    'induk' => 'ID: ' . $member->getKey(),
+                    'id' => '#AGT-'.str_pad((string) $member->getKey(), 3, '0', STR_PAD_LEFT),
+                    'induk' => 'ID: '.$member->getKey(),
                     'nama' => $member->nama_anggota,
                     'sub' => $member->email_anggota,
                     'email' => $member->email_anggota,
@@ -48,29 +50,34 @@ class KelolaAnggotaController extends Controller
 
     public function nonaktifkan(int $id, DendaService $dendaService): RedirectResponse
     {
-        $anggota = DB::transaction(function () use ($id, $dendaService) {
-            $member = Anggota::query()->whereKey($id)->lockForUpdate()->firstOrFail();
+        try {
+            $anggota = DB::transaction(function () use ($id, $dendaService) {
+                $member = Anggota::query()->whereKey($id)->lockForUpdate()->firstOrFail();
 
-            if ($member->status_anggota === Anggota::STATUS_NONAKTIF) {
-                return 'nonaktif';
-            }
+                if ($member->status_anggota === Anggota::STATUS_NONAKTIF) {
+                    return 'nonaktif';
+                }
 
-            $pinjamanAktif = $member->peminjaman()
-                ->whereIn('status_peminjaman', Peminjaman::STATUS_AKTIF)
-                ->exists();
+                $pinjamanAktif = $member->peminjaman()
+                    ->whereIn('status_peminjaman', Peminjaman::STATUS_AKTIF)
+                    ->exists();
 
-            if ($pinjamanAktif) {
-                return 'pinjaman';
-            }
+                if ($pinjamanAktif) {
+                    return 'pinjaman';
+                }
 
-            if (! $dendaService->bolehMeminjamBaru((int) $member->getKey())) {
-                return 'denda';
-            }
+                if (! $dendaService->bolehMeminjamBaru((int) $member->getKey())) {
+                    return 'denda';
+                }
 
-            $member->update(['status_anggota' => Anggota::STATUS_NONAKTIF]);
+                $member->update(['status_anggota' => Anggota::STATUS_NONAKTIF]);
+                app(LogAktivitasService::class)->catat('hapus', 'anggota', 'nonaktif');
 
-            return 'berhasil';
-        }, 3);
+                return 'berhasil';
+            }, 3);
+        } catch (LogAktivitasException $exception) {
+            return back()->with('error', 'Aksi dibatalkan karena log aktivitas gagal disimpan. Coba lagi atau hubungi administrator.');
+        }
 
         if ($anggota === 'pinjaman') {
             return back()->with('error', 'Anggota masih memiliki peminjaman berjalan.');

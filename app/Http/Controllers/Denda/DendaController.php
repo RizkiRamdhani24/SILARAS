@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Denda;
 
 use App\Http\Controllers\Controller;
+use App\Exceptions\LogAktivitasException;
 use App\Models\PembayaranDenda;
 use App\Models\TagihanDenda;
 use App\Services\DendaService;
+use App\Services\LogAktivitasService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -148,15 +150,23 @@ class DendaController extends Controller
             'tarif_denda_per_hari' => ['required', 'integer', 'min:0'],
         ]);
 
-        $affected = DB::table('pengaturan')
-            ->where('kunci', 'tarif_denda_per_hari')
-            ->update([
-                'nilai' => (string) $validated['tarif_denda_per_hari'],
-                'updated_at' => Carbon::now('UTC'),
-            ]);
+        try {
+            DB::transaction(function () use ($validated) {
+                $affected = DB::table('pengaturan')
+                    ->where('kunci', 'tarif_denda_per_hari')
+                    ->update([
+                        'nilai' => (string) $validated['tarif_denda_per_hari'],
+                        'updated_at' => Carbon::now('UTC'),
+                    ]);
 
-        if ($affected === 0 && ! DB::table('pengaturan')->where('kunci', 'tarif_denda_per_hari')->exists()) {
-            throw new LogicException('Pengaturan tarif_denda_per_hari tidak ditemukan.');
+                if ($affected === 0 && ! DB::table('pengaturan')->where('kunci', 'tarif_denda_per_hari')->exists()) {
+                    throw new LogicException('Pengaturan tarif_denda_per_hari tidak ditemukan.');
+                }
+
+                app(LogAktivitasService::class)->catat('ubah', 'pengaturan', 'Tarif denda per hari');
+            });
+        } catch (LogAktivitasException $exception) {
+            return back()->with('error', $this->logFailureMessage());
         }
 
         return redirect()->back()->with('success', 'Tarif denda berhasil diperbarui.');
@@ -252,39 +262,44 @@ class DendaController extends Controller
         abort_unless($petugas, 403);
         $service = app(DendaService::class);
 
-        DB::transaction(function () use ($tagihan, $petugas, $service) {
-            $lockedTagihan = TagihanDenda::query()
-                ->whereKey($tagihan->getKey())
-                ->lockForUpdate()
-                ->firstOrFail();
-            $nominalSen = $service->jumlahPembayaranDalamSen($lockedTagihan->nominal_tagihan);
+        try {
+            DB::transaction(function () use ($tagihan, $petugas, $service) {
+                $lockedTagihan = TagihanDenda::query()
+                    ->whereKey($tagihan->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $nominalSen = $service->jumlahPembayaranDalamSen($lockedTagihan->nominal_tagihan);
 
-            if ($nominalSen <= 0 || $lockedTagihan->status_tagihan !== TagihanDenda::STATUS_BELUM_LUNAS) {
-                throw ValidationException::withMessages([
-                    'tagihan' => 'Tagihan tidak memiliki kewajiban yang belum lunas.',
+                if ($nominalSen <= 0 || $lockedTagihan->status_tagihan !== TagihanDenda::STATUS_BELUM_LUNAS) {
+                    throw ValidationException::withMessages([
+                        'tagihan' => 'Tagihan tidak memiliki kewajiban yang belum lunas.',
+                    ]);
+                }
+
+                if ($lockedTagihan->pembayaran()->where('status_pembayaran', 'menunggu_verifikasi')->exists()) {
+                    throw ValidationException::withMessages([
+                        'tagihan' => 'Selesaikan pembayaran pending sebelum mencatat pembayaran tunai.',
+                    ]);
+                }
+
+                PembayaranDenda::create([
+                    'id_tagihan_denda' => $lockedTagihan->id_tagihan_denda,
+                    'id_anggota' => $lockedTagihan->id_anggota,
+                    'id_petugas_verifikasi' => $petugas->getAuthIdentifier(),
+                    'metode_pembayaran' => 'tunai',
+                    'jumlah_pembayaran' => $service->formatJumlahDalamSen($nominalSen),
+                    'status_pembayaran' => 'diverifikasi',
+                    'catatan_petugas' => 'Pembayaran tunai dicatat langsung oleh Petugas.',
+                    'waktu_pembayaran' => Carbon::now('UTC'),
+                    'waktu_verifikasi' => Carbon::now('UTC'),
                 ]);
-            }
 
-            if ($lockedTagihan->pembayaran()->where('status_pembayaran', 'menunggu_verifikasi')->exists()) {
-                throw ValidationException::withMessages([
-                    'tagihan' => 'Selesaikan pembayaran pending sebelum mencatat pembayaran tunai.',
-                ]);
-            }
-
-            PembayaranDenda::create([
-                'id_tagihan_denda' => $lockedTagihan->id_tagihan_denda,
-                'id_anggota' => $lockedTagihan->id_anggota,
-                'id_petugas_verifikasi' => $petugas->getAuthIdentifier(),
-                'metode_pembayaran' => 'tunai',
-                'jumlah_pembayaran' => $service->formatJumlahDalamSen($nominalSen),
-                'status_pembayaran' => 'diverifikasi',
-                'catatan_petugas' => 'Pembayaran tunai dicatat langsung oleh Petugas.',
-                'waktu_pembayaran' => Carbon::now('UTC'),
-                'waktu_verifikasi' => Carbon::now('UTC'),
-            ]);
-
-            $service->sinkronkanStatusTagihan($lockedTagihan);
-        }, 3);
+                $service->sinkronkanStatusTagihan($lockedTagihan);
+                app(LogAktivitasService::class)->catat('tambah', 'denda', 'Pembayaran tunai #'.$tagihan->getKey());
+            }, 3);
+        } catch (LogAktivitasException $exception) {
+            return back()->with('error', $this->logFailureMessage());
+        }
 
         return redirect()->back()->with('success', 'Pembayaran tunai berhasil dicatat sebagai lunas.');
     }
@@ -313,74 +328,88 @@ class DendaController extends Controller
         abort_unless($petugas, 403);
 
         $service = app(DendaService::class);
-        DB::transaction(function () use ($pembayaran, $request, $petugas, $service) {
-            $tagihanId = $pembayaran->id_tagihan_denda;
-            $tagihan = TagihanDenda::query()
-                ->whereKey($tagihanId)
-                ->lockForUpdate()
-                ->firstOrFail();
-            $lockedPembayaran = PembayaranDenda::query()
-                ->whereKey($pembayaran->getKey())
-                ->lockForUpdate()
-                ->firstOrFail();
+        try {
+            DB::transaction(function () use ($pembayaran, $request, $petugas, $service) {
+                $tagihanId = $pembayaran->id_tagihan_denda;
+                $tagihan = TagihanDenda::query()
+                    ->whereKey($tagihanId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $lockedPembayaran = PembayaranDenda::query()
+                    ->whereKey($pembayaran->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            if ((int) $lockedPembayaran->id_tagihan_denda !== (int) $tagihan->id_tagihan_denda) {
-                throw new LogicException('Pembayaran tidak sesuai dengan tagihan yang dikunci.');
-            }
+                if ((int) $lockedPembayaran->id_tagihan_denda !== (int) $tagihan->id_tagihan_denda) {
+                    throw new LogicException('Pembayaran tidak sesuai dengan tagihan yang dikunci.');
+                }
 
-            if ((int) $lockedPembayaran->id_anggota !== (int) $tagihan->id_anggota) {
-                throw new LogicException('Anggota pada pembayaran tidak sesuai dengan anggota pada tagihan.');
-            }
+                if ((int) $lockedPembayaran->id_anggota !== (int) $tagihan->id_anggota) {
+                    throw new LogicException('Anggota pada pembayaran tidak sesuai dengan anggota pada tagihan.');
+                }
 
-            if ((int) $tagihan->peminjaman()->value('id_anggota') !== (int) $tagihan->id_anggota) {
-                throw new LogicException('Anggota pada tagihan tidak sesuai dengan anggota pada peminjaman.');
-            }
+                if ((int) $tagihan->peminjaman()->value('id_anggota') !== (int) $tagihan->id_anggota) {
+                    throw new LogicException('Anggota pada tagihan tidak sesuai dengan anggota pada peminjaman.');
+                }
 
-            if ($lockedPembayaran->status_pembayaran !== 'menunggu_verifikasi') {
-                throw ValidationException::withMessages([
-                    'status_pembayaran' => 'Pembayaran ini sudah diproses sebelumnya.',
+                if ($lockedPembayaran->status_pembayaran !== 'menunggu_verifikasi') {
+                    throw ValidationException::withMessages([
+                        'status_pembayaran' => 'Pembayaran ini sudah diproses sebelumnya.',
+                    ]);
+                }
+
+                $jumlahSen = $service->jumlahPembayaranDalamSen($lockedPembayaran->jumlah_pembayaran);
+                if ($request->status_pembayaran === 'diverifikasi' && $jumlahSen <= 0) {
+                    throw ValidationException::withMessages([
+                        'status_pembayaran' => 'Pembayaran dengan nominal nol atau negatif tidak dapat diverifikasi.',
+                    ]);
+                }
+
+                if (
+                    $request->status_pembayaran === 'diverifikasi'
+                    && $jumlahSen !== $service->jumlahPembayaranDalamSen($tagihan->nominal_tagihan)
+                ) {
+                    throw ValidationException::withMessages([
+                        'status_pembayaran' => 'Pembayaran melebihi sisa kewajiban dan tidak dapat diverifikasi.',
+                    ]);
+                }
+
+                $lockedPembayaran->update([
+                    'id_petugas_verifikasi' => $petugas->getAuthIdentifier(),
+                    'status_pembayaran' => $request->status_pembayaran,
+                    'catatan_petugas' => $request->catatan_petugas,
+                    'waktu_verifikasi' => Carbon::now('UTC'),
                 ]);
-            }
 
-            $jumlahSen = $service->jumlahPembayaranDalamSen($lockedPembayaran->jumlah_pembayaran);
-            if ($request->status_pembayaran === 'diverifikasi' && $jumlahSen <= 0) {
-                throw ValidationException::withMessages([
-                    'status_pembayaran' => 'Pembayaran dengan nominal nol atau negatif tidak dapat diverifikasi.',
-                ]);
-            }
+                $service->sinkronkanStatusTagihan($tagihan);
+                $tagihan->tgl_terakhir_diperbarui = Carbon::now('Asia/Jakarta')->toDateString();
+                $tagihan->save();
 
-            if (
-                $request->status_pembayaran === 'diverifikasi'
-                && $jumlahSen !== $service->jumlahPembayaranDalamSen($tagihan->nominal_tagihan)
-            ) {
-                throw ValidationException::withMessages([
-                    'status_pembayaran' => 'Pembayaran melebihi sisa kewajiban dan tidak dapat diverifikasi.',
-                ]);
-            }
-
-            $lockedPembayaran->update([
-                'id_petugas_verifikasi' => $petugas->getAuthIdentifier(),
-                'status_pembayaran' => $request->status_pembayaran,
-                'catatan_petugas' => $request->catatan_petugas,
-                'waktu_verifikasi' => Carbon::now('UTC'),
-            ]);
-
-            $service->sinkronkanStatusTagihan($tagihan);
-            $tagihan->tgl_terakhir_diperbarui = Carbon::now('Asia/Jakarta')->toDateString();
-            $tagihan->save();
-
-            $service->buatNotifikasi(
-                $lockedPembayaran->id_anggota,
-                null,
-                $request->status_pembayaran === 'diverifikasi' ? 'Pembayaran denda diterima' : 'Pembayaran denda ditolak',
-                $request->status_pembayaran === 'diverifikasi'
-                    ? 'Pembayaran denda kamu telah diverifikasi oleh petugas dan status tagihan diperbarui.'
-                    : 'Pembayaran denda kamu ditolak. Alasan: '.$request->catatan_petugas,
-                'denda',
-                route('anggota.denda.show', ['tagihan' => $tagihan->id_tagihan_denda])
-            );
-        }, 3);
+                $service->buatNotifikasi(
+                    $lockedPembayaran->id_anggota,
+                    null,
+                    $request->status_pembayaran === 'diverifikasi' ? 'Pembayaran denda diterima' : 'Pembayaran denda ditolak',
+                    $request->status_pembayaran === 'diverifikasi'
+                        ? 'Pembayaran denda kamu telah diverifikasi oleh petugas dan status tagihan diperbarui.'
+                        : 'Pembayaran denda kamu ditolak. Alasan: '.$request->catatan_petugas,
+                    'denda',
+                    route('anggota.denda.show', ['tagihan' => $tagihan->id_tagihan_denda])
+                );
+                app(LogAktivitasService::class)->catat(
+                    'ubah',
+                    'denda',
+                    'Pembayaran #'.$pembayaran->getKey().' '.($request->status_pembayaran === 'diverifikasi' ? 'diterima' : 'ditolak')
+                );
+            }, 3);
+        } catch (LogAktivitasException $exception) {
+            return back()->with('error', $this->logFailureMessage());
+        }
 
         return redirect()->back()->with('success', 'Status pembayaran berhasil diperbarui.');
+    }
+
+    private function logFailureMessage(): string
+    {
+        return 'Aksi dibatalkan karena log aktivitas gagal disimpan. Coba lagi atau hubungi administrator.';
     }
 }

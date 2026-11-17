@@ -259,3 +259,4 @@ require __DIR__.'/modules/notifikasi.php';
 require __DIR__.'/modules/riwayat.php';
 require __DIR__.'/modules/kelola-anggota.php';
 require __DIR__.'/modules/petugas-preview.php';
+require __DIR__.'/modules/ebook.php';

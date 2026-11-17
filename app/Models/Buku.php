@@ -19,11 +19,10 @@ class Buku extends Model
         'isbn',
         'rak',
         'cover',
-        'pdf',
         'diarsipkan',
     ];
 
-    protected $hidden = ['diarsipkan'];
+    protected $hidden = ['diarsipkan', 'pdf'];
 
     protected function casts(): array
     {
