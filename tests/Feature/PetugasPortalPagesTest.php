@@ -191,6 +191,81 @@ class PetugasPortalPagesTest extends TestCase
             ->assertJsonMissingPath('data.0.pdf');
     }
 
+    public function test_dashboard_uses_database_activity_counts_dates_and_configured_fine_rate(): void
+    {
+        $today = now('Asia/Jakarta')->startOfDay();
+        DB::table('anggota')->insert([
+            'id_anggota' => 1,
+            'nama_anggota' => 'Anggota Dashboard',
+        ]);
+        DB::table('buku')->insert([
+            'id_buku' => 1,
+            'judul_buku' => 'Buku Dashboard',
+            'pengarang' => 'Penulis Uji',
+            'isbn' => '9780000000001',
+            'rak' => 'A1',
+            'stock' => 2,
+            'created_at' => $today,
+            'updated_at' => $today,
+        ]);
+        DB::table('peminjaman')->insert([
+            [
+                'id_peminjaman' => 1,
+                'id_buku' => 1,
+                'id_anggota' => 1,
+                'tgl_peminjaman' => $today->toDateString(),
+                'tgl_jatuh_tempo' => $today->copy()->addDays(7)->toDateString(),
+                'status_peminjaman' => 'menunggu validasi',
+                'created_at' => $today,
+                'updated_at' => $today,
+            ],
+            [
+                'id_peminjaman' => 2,
+                'id_buku' => 1,
+                'id_anggota' => 1,
+                'tgl_peminjaman' => $today->toDateString(),
+                'tgl_jatuh_tempo' => $today->copy()->addDays(7)->toDateString(),
+                'status_peminjaman' => 'dikembalikan',
+                'created_at' => $today,
+                'updated_at' => $today,
+            ],
+        ]);
+        DB::table('pengembalian')->insert([
+            'id_pengembalian' => 1,
+            'id_peminjaman' => 2,
+            'tgl_pengembalian' => $today->toDateString(),
+            'denda' => 0,
+            'status_pengembalian' => 'selesai',
+            'status_denda' => 'tidak ada',
+            'created_at' => $today,
+            'updated_at' => $today,
+        ]);
+        DB::table('log_aktivitas')->insert([
+            'petugas_id' => 1,
+            'nama_petugas' => 'Petugas Log Nyata',
+            'aksi' => 'ubah',
+            'objek' => 'buku',
+            'keterangan' => 'Buku dari log',
+            'waktu' => $today,
+        ]);
+
+        $this->actingAs(new Petugas(['nama_petugas' => 'Petugas Dashboard']), 'petugas')
+            ->get('/petugas/dashboard')
+            ->assertOk()
+            ->assertSeeText('Petugas Dashboard')
+            ->assertSeeText('1 tertunda')
+            ->assertSeeText('ID Anggota: 1')
+            ->assertSeeText($today->format('d/m/Y'))
+            ->assertSeeText('Tarif Rp 5.000/hari')
+            ->assertSeeText('Petugas Log Nyata')
+            ->assertSeeText('Ubah buku — Buku dari log')
+            ->assertSee('Peminjaman Hari ini: 2', false)
+            ->assertSee('Pengembalian Hari ini: 1', false)
+            ->assertDontSeeText('Eom Seonghyeon')
+            ->assertDontSeeText('3 tertunda')
+            ->assertDontSeeText('15 Okt 2024');
+    }
+
     public function test_anggota_cannot_access_petugas_management_pages(): void
     {
         $this->actingAs(new Anggota(['nama_anggota' => 'Anggota Uji']), 'anggota');
@@ -241,7 +316,7 @@ class PetugasPortalPagesTest extends TestCase
         $this->mock(LogAktivitasService::class, function ($mock): void {
             $mock->shouldReceive('catat')
                 ->once()
-                ->andThrow(new LogAktivitasException());
+                ->andThrow(new LogAktivitasException);
         });
 
         $response = $this->from(route('petugas.kelola-buku.create'))
@@ -292,6 +367,164 @@ class PetugasPortalPagesTest extends TestCase
             'objek' => 'buku',
             'keterangan' => 'Buku Log Diubah',
         ]);
+    }
+
+    public function test_book_csv_template_and_atomic_import(): void
+    {
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas CSV']);
+        $this->actingAs($staff, 'petugas');
+
+        $template = $this->get(route('petugas.kelola-buku.template'))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        ob_start();
+        $template->baseResponse->sendContent();
+        $templateContent = ob_get_clean();
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $templateContent);
+        $this->assertStringContainsString('judul_buku,pengarang,penerbit,stock,kategori,isbn,rak', $templateContent);
+
+        $csv = "judul_buku,pengarang,penerbit,stock,kategori,isbn,rak\n".
+            "Buku CSV Satu,Penulis Satu,Penerbit A,3,Umum,978-111,R1\n".
+            "Buku CSV Dua,Penulis Dua,,0,Fiksi,,R2\n";
+
+        $this->post(route('petugas.kelola-buku.import'), [
+            'file' => UploadedFile::fake()->createWithContent('buku.csv', $csv),
+        ])->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHas('success', '2 buku berhasil diimpor.');
+
+        $this->assertDatabaseHas('buku', [
+            'judul_buku' => 'Buku CSV Satu',
+            'stock' => 3,
+            'isbn' => '978-111',
+        ]);
+        $this->assertDatabaseHas('buku', [
+            'judul_buku' => 'Buku CSV Dua',
+            'penerbit' => null,
+            'stock' => 0,
+        ]);
+        $this->assertDatabaseCount('log_aktivitas', 2);
+    }
+
+    public function test_book_csv_import_rejects_duplicate_batch_without_partial_writes(): void
+    {
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas CSV']);
+        $this->actingAs($staff, 'petugas');
+        DB::table('buku')->insert([
+            'judul_buku' => 'Buku Sudah Ada',
+            'pengarang' => 'Penulis Ada',
+            'stock' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $csv = "judul_buku,pengarang,penerbit,stock,kategori,isbn,rak\n".
+            "Buku Baru,Penulis Baru,,1,Umum,,R1\n".
+            "Buku Sudah Ada,Penulis Ada,,1,Umum,,R2\n";
+
+        $this->from(route('petugas.kelola-buku.index'))
+            ->post(route('petugas.kelola-buku.import'), [
+                'file' => UploadedFile::fake()->createWithContent('duplikat.csv', $csv),
+            ])
+            ->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHasErrors('file');
+
+        $this->assertDatabaseMissing('buku', ['judul_buku' => 'Buku Baru']);
+        $this->assertDatabaseCount('log_aktivitas', 0);
+    }
+
+    public function test_bulk_book_delete_uses_all_filtered_and_refuses_books_with_loan_history(): void
+    {
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas Hapus']);
+        $this->actingAs($staff, 'petugas');
+        $availableId = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Tersedia',
+            'pengarang' => 'Penulis',
+            'stock' => 1,
+            'diarsipkan' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+        $emptyStockId = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Habis',
+            'pengarang' => 'Penulis',
+            'stock' => 0,
+            'diarsipkan' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+
+        $this->post(route('petugas.kelola-buku.bulk-destroy'), [
+            'all_filtered' => 1,
+            'ketersediaan' => 'tersedia',
+        ])->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHas('success', '1 buku berhasil dihapus permanen.');
+
+        $this->assertDatabaseMissing('buku', ['id_buku' => $availableId]);
+        $this->assertDatabaseHas('buku', ['id_buku' => $emptyStockId]);
+
+        $loanBookId = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Bersejarah',
+            'pengarang' => 'Penulis',
+            'stock' => 1,
+            'diarsipkan' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+        DB::table('peminjaman')->insert([
+            'id_buku' => $loanBookId,
+            'id_anggota' => 1,
+            'status_peminjaman' => 'dikembalikan',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->from(route('petugas.kelola-buku.index'))
+            ->post(route('petugas.kelola-buku.bulk-destroy'), ['ids' => [$loanBookId]])
+            ->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('buku', ['id_buku' => $loanBookId]);
+        $this->assertDatabaseCount('log_aktivitas', 1);
+    }
+
+    public function test_book_can_be_permanently_deleted_only_without_loan_history(): void
+    {
+        $staff = Petugas::query()->create(['nama_petugas' => 'Petugas Hapus']);
+        $this->actingAs($staff, 'petugas');
+        $bookId = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Tanpa Riwayat',
+            'pengarang' => 'Penulis',
+            'stock' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+
+        $this->delete(route('petugas.kelola-buku.permanent-destroy', $bookId))
+            ->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHas('success', 'Buku berhasil dihapus permanen.');
+        $this->assertDatabaseMissing('buku', ['id_buku' => $bookId]);
+
+        $bookWithHistory = DB::table('buku')->insertGetId([
+            'judul_buku' => 'Buku Dengan Riwayat',
+            'pengarang' => 'Penulis',
+            'stock' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], 'id_buku');
+        DB::table('peminjaman')->insert([
+            'id_buku' => $bookWithHistory,
+            'id_anggota' => 1,
+            'status_peminjaman' => 'dikembalikan',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->from(route('petugas.kelola-buku.index'))
+            ->delete(route('petugas.kelola-buku.permanent-destroy', $bookWithHistory))
+            ->assertRedirect(route('petugas.kelola-buku.index'))
+            ->assertSessionHas('error');
+        $this->assertDatabaseHas('buku', ['id_buku' => $bookWithHistory]);
+        $this->assertDatabaseCount('log_aktivitas', 1);
     }
 
     public function test_petugas_can_open_denda_details(): void

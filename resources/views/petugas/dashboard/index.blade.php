@@ -4,7 +4,10 @@
 
 @php
     $rp = fn ($n) => 'Rp '.number_format((float) $n, 0, ',', '.');
-    $namaPetugas = auth('petugas')->user()->nama_petugas ?? 'Eom Seonghyeon';
+    $namaPetugas = auth('petugas')->user()?->nama_petugas ?? 'Petugas';
+    $tarifDendaPerHari = \Illuminate\Support\Facades\Schema::hasTable('pengaturan')
+        ? app(\App\Services\DendaService::class)->tarifDendaPerHari()
+        : null;
 
     $pendingLoans = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
         ? \App\Models\Peminjaman::query()->where('status_peminjaman', \App\Models\Peminjaman::STATUS_MENUNGGU_VALIDASI)->count()
@@ -26,12 +29,16 @@
             ->get()
             ->map(fn ($loan) => [
                 'id' => 'PMJ-' . $loan->id_peminjaman,
-                'nama' => $loan->anggota?->nama_anggota ?? 'Anggota',
+                'nama' => $loan->anggota?->nama_anggota ?? '-',
                 'nim' => $loan->anggota?->id_anggota ?? '-',
-                'prodi' => 'Anggota',
-                'judul' => $loan->buku?->judul_buku ?? 'Judul belum ada',
+                'judul' => $loan->buku?->judul_buku ?? '-',
                 'isbn' => $loan->buku?->isbn ?? '-',
                 'rak' => $loan->buku?->rak ?? '-',
+                'tgl_peminjaman' => $loan->tgl_peminjaman?->format('d/m/Y') ?? '-',
+                'tgl_jatuh_tempo' => $loan->tgl_jatuh_tempo?->format('d/m/Y') ?? '-',
+                'durasi' => $loan->tgl_peminjaman && $loan->tgl_jatuh_tempo
+                    ? $loan->tgl_peminjaman->diffInDays($loan->tgl_jatuh_tempo) . ' hari'
+                    : '-',
             ])
         : collect();
     $kembali = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
@@ -49,8 +56,8 @@
                 return [
                     'id' => 'KMB-' . $return->id_pengembalian,
                     'telat' => $daysLate,
-                    'judul' => $loan?->buku?->judul_buku ?? 'Judul belum ada',
-                    'peminjam' => ($loan?->anggota?->nama_anggota ?? 'Anggota') . ' (' . ($loan?->anggota?->id_anggota ?? '-') . ')',
+                    'judul' => $loan?->buku?->judul_buku ?? '-',
+                    'peminjam' => ($loan?->anggota?->nama_anggota ?? '-') . ' (' . ($loan?->anggota?->id_anggota ?? '-') . ')',
                     'tempo' => $loan?->tgl_jatuh_tempo ? $loan->tgl_jatuh_tempo->format('d M Y') : '-',
                     'masuk' => $return->tgl_pengembalian ? $return->tgl_pengembalian->format('d M Y') : '-',
                     'denda' => (float) $return->denda,
@@ -58,15 +65,56 @@
             })
         : collect();
     $kritis = $criticalBooks->map(fn ($book) => ['judul' => $book->judul_buku, 'info' => ($book->pengarang ?? 'Penulis tidak tersedia') . ' • ' . ($book->penerbit ?? 'Penerbit tidak tersedia'), 'kode' => 'BK-' . $book->id_buku, 'stok' => (int) $book->stock])->all();
-    $tren = [
-        ['Sen', 38, 27], ['Sel', 52, 44], ['Rab', 22, 18], ['Kam', 58, 54], ['Jum', 42, 34], ['Sab', 20, 16], ['Hari ini', 62, 46],
-    ];
-    $log = [
-        ['jam' => 'Sekarang', 'isi' => 'Antrean peminjaman menunggu validasi: ' . $pendingLoans . ' transaksi.', 'bold' => $namaPetugas, 'meta' => 'petugas / dashboard'],
-        ['jam' => 'Baru', 'isi' => 'Denda belum dibayar tercatat: ' . $rp($lateDenda) . '.', 'bold' => null, 'meta' => 'status_denda'],
-        ['jam' => 'Aktif', 'isi' => 'Jumlah anggota terdaftar: ' . $memberCount . ' orang.', 'bold' => null, 'meta' => 'anggota'],
-    ];
-    $maks = max(array_map(fn ($t) => max($t[1], $t[2]), $tren));
+    $dendaAktif = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
+        ? \App\Models\Pengembalian::query()
+            ->where('status_denda', \App\Models\Pengembalian::DENDA_BELUM_DIBAYAR)
+            ->count()
+        : null;
+    $hariIni = \Illuminate\Support\Carbon::now('Asia/Jakarta')->startOfDay();
+    $awalTren = $hariIni->copy()->subDays(6);
+    $trenTersedia = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+        && \Illuminate\Support\Facades\Schema::hasTable('pengembalian');
+    $pinjamanHarian = \Illuminate\Support\Facades\Schema::hasTable('peminjaman')
+        ? \App\Models\Peminjaman::query()
+            ->whereBetween('tgl_peminjaman', [$awalTren->toDateString(), $hariIni->toDateString()])
+            ->selectRaw('tgl_peminjaman, COUNT(*) as jumlah')
+            ->groupBy('tgl_peminjaman')
+            ->pluck('jumlah', 'tgl_peminjaman')
+        : collect();
+    $pengembalianHarian = \Illuminate\Support\Facades\Schema::hasTable('pengembalian')
+        ? \App\Models\Pengembalian::query()
+            ->where('status_pengembalian', \App\Models\Pengembalian::STATUS_SELESAI)
+            ->whereBetween('tgl_pengembalian', [$awalTren->toDateString(), $hariIni->toDateString()])
+            ->selectRaw('tgl_pengembalian, COUNT(*) as jumlah')
+            ->groupBy('tgl_pengembalian')
+            ->pluck('jumlah', 'tgl_pengembalian')
+        : collect();
+    $namaHari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    $tren = collect(range(6, 0))->map(function ($hariLalu) use ($hariIni, $pinjamanHarian, $pengembalianHarian, $namaHari) {
+        $tanggal = $hariIni->copy()->subDays($hariLalu);
+
+        return [
+            'hari' => $hariLalu === 0 ? 'Hari ini' : $namaHari[$tanggal->dayOfWeek],
+            'pinjam' => (int) $pinjamanHarian->get($tanggal->toDateString(), 0),
+            'balik' => (int) $pengembalianHarian->get($tanggal->toDateString(), 0),
+        ];
+    })->all();
+    $maks = max(1, ...array_map(fn ($t) => max($t['pinjam'], $t['balik']), $tren));
+    $logTersedia = \Illuminate\Support\Facades\Schema::hasTable('log_aktivitas');
+    $log = $logTersedia
+        ? \App\Models\LogAktivitas::query()
+            ->orderByDesc('waktu')
+            ->orderByDesc('id')
+            ->limit(3)
+            ->get()
+            ->map(fn ($aktivitas) => [
+                'petugas' => $aktivitas->nama_petugas,
+                'aksi' => ucfirst($aktivitas->aksi),
+                'objek' => strtolower($aktivitas->objek),
+                'keterangan' => $aktivitas->keterangan,
+                'waktu' => $aktivitas->waktu?->timezone('Asia/Jakarta')->format('d/m/Y H:i') ?? '-',
+            ])
+        : collect();
 @endphp
 
 @section('content')
@@ -105,7 +153,10 @@
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Hitung denda</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'cash', 'class' => 'size-5'])</span></div>
             <p class="mt-3 text-3xl font-extrabold">{{ $rp($lateDenda) }}</p>
-            <p class="mt-3 flex justify-between text-xs"><span class="text-blue-700">Tarif {{ $rp(2000) }}/hari</span><span class="text-blue-700">{{ $kembali->filter(fn($item) => $item['denda'] > 0)->count() }} denda aktif</span></p>
+            <p class="mt-3 flex justify-between text-xs">
+                <span class="text-blue-700">{{ $tarifDendaPerHari === null ? 'Tarif belum tersedia' : 'Tarif '.$rp($tarifDendaPerHari).'/hari' }}</span>
+                <span class="text-blue-700">{{ $dendaAktif === null ? 'Data denda belum tersedia' : $dendaAktif.' denda aktif' }}</span>
+            </p>
         </div>
         <div class="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(15,27,61,0.06)] ring-1 ring-slate-100">
             <div class="flex items-center justify-between"><p class="text-sm font-medium text-slate-600">Kelola buku</p><span class="grid size-9 place-items-center rounded-lg bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'book', 'class' => 'size-5'])</span></div>
@@ -132,7 +183,7 @@
                             <p class="text-xs text-slate-500">Modul UC-07: validasi batas kuota anggota, perbarui status menjadi "Dipinjam" &amp; potong stok fisik.</p>
                         </div>
                     </div>
-                    <span class="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">3 tertunda</span>
+                    <span class="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{{ $pendingLoans }} tertunda</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[44rem] text-left text-sm">
@@ -150,9 +201,9 @@
                             @foreach ($antrean as $p)
                                 <tr class="align-top">
                                     <td class="px-5 py-4 font-bold text-blue-700">{{ $p['id'] }}</td>
-                                    <td class="px-3 py-4"><p class="font-semibold">{{ $p['nama'] }}</p><p class="text-xs text-slate-500">NIM: {{ $p['nim'] }} • {{ $p['prodi'] }}</p></td>
+                                    <td class="px-3 py-4"><p class="font-semibold">{{ $p['nama'] }}</p><p class="text-xs text-slate-500">ID Anggota: {{ $p['nim'] }}</p></td>
                                     <td class="px-3 py-4"><p class="font-semibold">{{ $p['judul'] }}</p><p class="text-xs text-slate-500">ISBN: {{ $p['isbn'] }} • Rak: {{ $p['rak'] }}</p></td>
-                                    <td class="px-3 py-4 text-xs"><p>15 Okt 2024</p><p class="font-semibold text-amber-700">→ 22 Okt 2024 (7 hari)</p></td>
+                                    <td class="px-3 py-4 text-xs"><p>{{ $p['tgl_peminjaman'] }}</p><p class="font-semibold text-amber-700">→ {{ $p['tgl_jatuh_tempo'] }} ({{ $p['durasi'] }})</p></td>
                                     <td class="px-3 py-4"><span class="inline-flex rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Menunggu validasi</span></td>
                                     <td class="px-3 py-4 pr-5">
                                         <div class="flex items-center justify-end gap-2">
@@ -181,7 +232,7 @@
                             <p class="text-xs text-slate-500">Perhitungan denda otomatis berbasis tanggal jatuh tempo &amp; validasi kondisi buku.</p>
                         </div>
                     </div>
-                    <span class="text-xs text-slate-500">Tarif: {{ $rp(2000) }} / hari terlambat</span>
+                    <span class="text-xs text-slate-500">{{ $tarifDendaPerHari === null ? 'Tarif belum tersedia' : 'Tarif: '.$rp($tarifDendaPerHari).' / hari terlambat' }}</span>
                 </div>
                 <ul class="mt-4 space-y-3">
                     @foreach ($kembali as $k)
@@ -228,17 +279,21 @@
                         <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-full bg-blue-900"></span>Pengembalian</span>
                     </p>
                 </div>
-                <div class="mt-6 flex h-44 items-end justify-between gap-2" role="img" aria-label="Grafik batang peminjaman dan pengembalian 7 hari terakhir">
-                    @foreach ($tren as [$hari, $pinjam, $balik])
-                        <div class="flex flex-1 flex-col items-center gap-2">
-                            <div class="flex h-36 items-end gap-1">
-                                <span class="w-4 rounded-t bg-blue-600 sm:w-5" style="height: {{ round($pinjam / $maks * 100) }}%" title="Peminjaman {{ $hari }}: {{ $pinjam }}"></span>
-                                <span class="w-4 rounded-t bg-blue-900 sm:w-5" style="height: {{ round($balik / $maks * 100) }}%" title="Pengembalian {{ $hari }}: {{ $balik }}"></span>
+                @if ($trenTersedia)
+                    <div class="mt-6 flex h-44 items-end justify-between gap-2" role="img" aria-label="Grafik batang peminjaman dan pengembalian 7 hari terakhir">
+                        @foreach ($tren as $t)
+                            <div class="flex flex-1 flex-col items-center gap-2">
+                                <div class="flex h-36 items-end gap-1">
+                                    <span class="w-4 rounded-t bg-blue-600 sm:w-5" style="height: {{ round($t['pinjam'] / $maks * 100) }}%" title="Peminjaman {{ $t['hari'] }}: {{ $t['pinjam'] }}"></span>
+                                    <span class="w-4 rounded-t bg-blue-900 sm:w-5" style="height: {{ round($t['balik'] / $maks * 100) }}%" title="Pengembalian {{ $t['hari'] }}: {{ $t['balik'] }}"></span>
+                                </div>
+                                <span @class(['text-xs', 'font-bold text-blue-700' => $t['hari'] === 'Hari ini', 'text-slate-500' => $t['hari'] !== 'Hari ini'])>{{ $t['hari'] }}</span>
                             </div>
-                            <span @class(['text-xs', 'font-bold text-blue-700' => $hari === 'Hari ini', 'text-slate-500' => $hari !== 'Hari ini'])>{{ $hari }}</span>
-                        </div>
-                    @endforeach
-                </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="mt-6 text-sm text-slate-500">Data tren belum tersedia.</p>
+                @endif
             </section>
         </div>
 
@@ -274,15 +329,17 @@
                     @include('petugas.partials.icon', ['name' => 'history', 'class' => 'size-5 text-blue-700']) Log Aktivitas Petugas
                 </h2>
                 <ul class="mt-4 space-y-4 text-sm">
-                    @foreach ($log as $l)
+                    @forelse ($log as $l)
                         <li class="flex gap-3">
                             <span class="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-700">@include('petugas.partials.icon', ['name' => 'check', 'class' => 'size-4'])</span>
                             <div>
-                                <p>@if ($l['bold'])<b>{{ $l['bold'] }}</b> @endif{{ $l['isi'] }}</p>
-                                <p class="mt-0.5 font-mono text-xs text-slate-500">{{ $l['jam'] }} • {{ $l['meta'] }}</p>
+                                <p><b>{{ $l['petugas'] }}</b> • {{ $l['aksi'] }} {{ $l['objek'] }}@if ($l['keterangan']) — {{ $l['keterangan'] }}@endif</p>
+                                <p class="mt-0.5 font-mono text-xs text-slate-500">{{ $l['waktu'] }} • log aktivitas</p>
                             </div>
                         </li>
-                    @endforeach
+                    @empty
+                        <li class="text-sm text-slate-500">{{ $logTersedia ? 'Belum ada aktivitas tercatat.' : 'Log aktivitas belum tersedia.' }}</li>
+                    @endforelse
                 </ul>
             </section>
         </aside>

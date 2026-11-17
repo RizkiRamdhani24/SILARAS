@@ -128,7 +128,9 @@
                     </tbody>
                 </table>
             </div>
-            @include('petugas.partials.pagination', ['from' => 1, 'to' => 5, 'total' => '1.845', 'noun' => 'total anggota terdaftar', 'last' => 369])
+            <div class="border-t border-slate-100 px-5 py-4 text-sm text-slate-500">
+                <p>Menampilkan <b class="text-[#0F1B3D]">{{ $anggota->isEmpty() ? 0 : 1 }} - {{ $anggota->count() }}</b> dari <b class="text-[#0F1B3D]">{{ number_format($anggota->count(), 0, ',', '.') }}</b> total anggota terdaftar</p>
+            </div>
         </div>
 
         <aside class="flex gap-3 rounded-2xl bg-amber-50 p-5 text-sm" aria-label="Prosedur bebas pustaka">

@@ -19,6 +19,10 @@ Route::middleware('role.petugas')
     ->name('petugas.')
     ->group(function () {
         Route::get('/ebook', [EbookController::class, 'indexPetugas'])->name('ebook.index');
+        Route::get('/ebook/template.csv', [EbookController::class, 'downloadTemplate'])->name('ebook.template');
+        Route::post('/ebook/impor-csv', [EbookController::class, 'importCsv'])->name('ebook.import');
+        Route::post('/ebook/hapus-terpilih', [EbookController::class, 'bulkDestroy'])
+            ->name('ebook.bulk-destroy');
         Route::get('/ebook/tambah', [EbookController::class, 'create'])->name('ebook.create');
         Route::post('/ebook', [EbookController::class, 'store'])->name('ebook.store');
         Route::get('/ebook/unduhan', [EbookController::class, 'unduhan'])->name('ebook.unduhan');

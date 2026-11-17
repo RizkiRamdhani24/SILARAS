@@ -8,6 +8,7 @@ use App\Models\LogAktivitas;
 use App\Models\Petugas;
 use App\Models\UnduhanEbook;
 use App\Services\LogAktivitasService;
+use App\Services\EbookCoverStorageService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
@@ -151,6 +152,17 @@ class EbookFeatureTest extends TestCase
         Storage::disk('s3')->assertMissing($coverPath);
     }
 
+    public function test_ebook_delete_does_not_remove_cover_still_owned_by_book_catalog(): void
+    {
+        Storage::fake('s3');
+        $sourceCover = 'buku/cover/shared-source.jpg';
+        Storage::disk('s3')->put($sourceCover, 'cover');
+
+        app(EbookCoverStorageService::class)->delete(Storage::disk('s3')->url($sourceCover));
+
+        Storage::disk('s3')->assertExists($sourceCover);
+    }
+
     public function test_petugas_can_create_update_and_delete_ebook_with_activity_logs_and_cover_cleanup(): void
     {
         Storage::fake('s3');
@@ -208,6 +220,65 @@ class EbookFeatureTest extends TestCase
             'objek' => 'ebook',
             'keterangan' => 'Ebook Diperbarui',
         ]);
+    }
+
+    public function test_ebook_csv_template_and_import_adds_coverless_ebooks_atomically(): void
+    {
+        $staff = $this->createStaff();
+        $this->actingAs($staff, 'petugas');
+
+        $template = $this->get(route('petugas.ebook.template'))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        ob_start();
+        $template->baseResponse->sendContent();
+        $templateContent = ob_get_clean();
+        $this->assertStringStartsNotWith("\xEF\xBB\xBF", $templateContent);
+        $this->assertStringContainsString('judul,penulis,link_drive', $templateContent);
+
+        $csv = "judul,penulis,link_drive\n".
+            "Ebook CSV Satu,Penulis Satu,https://drive.google.com/file/d/one/view\n".
+            "Ebook CSV Dua,Penulis Dua,https://drive.google.com/file/d/two/view\n";
+
+        $this->post(route('petugas.ebook.import'), [
+            'file' => UploadedFile::fake()->createWithContent('ebook.csv', $csv),
+        ])->assertRedirect(route('petugas.ebook.index'))
+            ->assertSessionHas('success', '2 ebook berhasil diimpor.');
+
+        $this->assertDatabaseHas('ebook', [
+            'judul' => 'Ebook CSV Satu',
+            'penulis' => 'Penulis Satu',
+            'cover' => null,
+        ]);
+        $this->assertDatabaseCount('ebook', 2);
+        $this->assertDatabaseCount('log_aktivitas', 2);
+    }
+
+    public function test_bulk_ebook_delete_preserves_download_history_snapshots(): void
+    {
+        Storage::fake('s3');
+        $member = $this->createMember('Anggota Bulk Ebook');
+        $first = $this->createEbook('Ebook Bulk Satu', 'Penulis Satu', '');
+        $this->createEbook('Ebook Bulk Dua', 'Penulis Dua', '');
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.ebook.unduh', $first))
+            ->assertRedirect($first->link_drive);
+
+        auth('anggota')->logout();
+        $staff = $this->createStaff();
+        $this->actingAs($staff, 'petugas')
+            ->post(route('petugas.ebook.bulk-destroy'), ['all_filtered' => 1])
+            ->assertRedirect(route('petugas.ebook.index'))
+            ->assertSessionHas('success', '2 ebook berhasil dihapus.');
+
+        $this->assertDatabaseCount('ebook', 0);
+        $this->assertDatabaseHas('unduhan_ebook', [
+            'ebook_id' => null,
+            'judul_ebook' => 'Ebook Bulk Satu',
+            'penulis_ebook' => 'Penulis Satu',
+        ]);
+        $this->assertDatabaseCount('log_aktivitas', 2);
     }
 
     public function test_ebook_create_rolls_back_and_removes_uploaded_cover_when_activity_logging_fails(): void

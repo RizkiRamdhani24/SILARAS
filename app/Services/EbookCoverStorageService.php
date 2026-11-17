@@ -43,6 +43,9 @@ class EbookCoverStorageService
         }
 
         $path = rawurldecode(substr($url, strlen($prefix)));
+        if (! str_starts_with($path, 'ebook/cover/') || str_contains($path, '..')) {
+            return;
+        }
 
         if ($disk->exists($path) && ! $disk->delete($path)) {
             throw new RuntimeException('Gagal menghapus cover Ebook dari storage.');

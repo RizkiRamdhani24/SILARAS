@@ -18,6 +18,19 @@ Route::prefix('petugas')
         Route::get('/kelola-buku', [BukuController::class, 'halaman'])
             ->name('kelola-buku.index');
 
+        Route::get('/kelola-buku/template.csv', [BukuController::class, 'downloadTemplate'])
+            ->name('kelola-buku.template');
+
+        Route::post('/kelola-buku/impor-csv', [BukuController::class, 'importCsv'])
+            ->name('kelola-buku.import');
+
+        Route::post('/kelola-buku/hapus-terpilih', [BukuController::class, 'bulkDestroy'])
+            ->name('kelola-buku.bulk-destroy');
+
+        Route::delete('/kelola-buku/{id}/hapus-permanen', [BukuController::class, 'permanentDestroy'])
+            ->whereNumber('id')
+            ->name('kelola-buku.permanent-destroy');
+
         Route::get('/kelola-buku/tambah', [BukuController::class, 'create'])
             ->name('kelola-buku.create');
 
