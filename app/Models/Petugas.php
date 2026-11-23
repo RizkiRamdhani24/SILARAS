@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
 class Petugas extends Authenticatable
 {
+    use Notifiable;
+
     protected $table = 'petugas';
 
     protected $primaryKey = 'id_petugas';
@@ -18,6 +21,16 @@ class Petugas extends Authenticatable
     protected function casts(): array
     {
         return ['password' => 'hashed'];
+    }
+
+    public function getEmailForPasswordReset()
+    {
+        return $this->email_petugas;
+    }
+
+    public function routeNotificationForMail($notification = null)
+    {
+        return $this->email_petugas;
     }
 
     public function peminjaman(): HasMany

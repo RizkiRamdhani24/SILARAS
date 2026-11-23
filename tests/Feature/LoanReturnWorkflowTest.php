@@ -413,6 +413,58 @@ class LoanReturnWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_marking_a_return_as_lost_issues_the_frozen_loss_fine(): void
+    {
+        $member = $this->createMember('Anggota Kehilangan');
+        $petugas = $this->createPetugas();
+        $book = $this->createBook();
+        $loan = $this->createLoan($member, $book, Peminjaman::STATUS_PENGEMBALIAN_DIAJUKAN);
+        $return = Pengembalian::create([
+            'id_peminjaman' => $loan->id_peminjaman,
+            'status_pengembalian' => Pengembalian::STATUS_MENUNGGU_VALIDASI,
+            'status_denda' => Pengembalian::DENDA_TIDAK_ADA,
+        ]);
+
+        $this->actingAs($petugas, 'petugas')
+            ->patch(route('petugas.pengembalian.setujui', $return->id_pengembalian), [
+                'kondisi_buku' => 'hilang',
+                'tgl_pengembalian' => today()->toDateString(),
+            ])
+            ->assertSessionHas('success');
+
+        $billId = DB::table('tagihan_denda')
+            ->where('id_peminjaman', $loan->id_peminjaman)
+            ->value('id_tagihan_denda');
+
+        $this->assertDatabaseHas('tagihan_denda', [
+            'id_peminjaman' => $loan->id_peminjaman,
+            'nominal_tagihan' => 100000,
+            'nominal_hilang' => 100000,
+            'status_tagihan' => 'belum_lunas',
+        ]);
+        $this->assertDatabaseHas('pengembalian', [
+            'id_pengembalian' => $return->id_pengembalian,
+            'kondisi_buku' => 'hilang',
+            'denda' => 100000,
+            'status_pengembalian' => Pengembalian::STATUS_SELESAI,
+        ]);
+        $this->assertDatabaseHas('peminjaman', [
+            'id_peminjaman' => $loan->id_peminjaman,
+            'status_peminjaman' => Peminjaman::STATUS_HILANG,
+        ]);
+        $this->assertDatabaseHas('buku', [
+            'id_buku' => $book->id_buku,
+            'stock' => 1,
+        ]);
+
+        auth('petugas')->logout();
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.denda.show', $billId))
+            ->assertOk()
+            ->assertSeeText('Bayar via QRIS')
+            ->assertSee('src="'.route('anggota.denda.qris', $billId, false).'"', false);
+    }
+
     public function test_member_can_cancel_return_request_resubmit_and_petugas_can_confirm_only_once(): void
     {
         $member = $this->createMember('Anggota Uji');

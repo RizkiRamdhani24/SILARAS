@@ -54,32 +54,23 @@ class DendaController extends Controller
             403
         );
 
-        $path = Storage::disk('s3')->path('qris/qris.png');
-        if (! is_file($path)) {
-            Log::error('QRIS image file not found.', [
-                'path' => $path,
-                'tagihan_id' => $tagihan->id_tagihan_denda,
-            ]);
-
-            abort(404, 'Gambar QRIS tidak ditemukan.');
+        $path = 'qris/qris.png';
+        foreach (['s3', 'local'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return Storage::disk($disk)->response($path, null, [
+                    'Content-Type' => 'image/png',
+                    'X-Content-Type-Options' => 'nosniff',
+                    'Cache-Control' => 'private, no-store',
+                ]);
+            }
         }
 
-        $image = file_get_contents($path);
-        if ($image === false) {
-            Log::error('QRIS image file could not be read.', [
-                'path' => $path,
-                'tagihan_id' => $tagihan->id_tagihan_denda,
-            ]);
-
-            abort(500, 'Gambar QRIS tidak dapat dibaca.');
-        }
-
-        return response($image, 200, [
-            'Content-Type' => 'image/png',
-            'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'private, no-store',
-            'Content-Length' => (string) strlen($image),
+        Log::error('QRIS image file not found.', [
+            'path' => $path,
+            'tagihan_id' => $tagihan->id_tagihan_denda,
         ]);
+
+        abort(404, 'Gambar QRIS tidak ditemukan.');
     }
 
     public function indexPetugas(Request $request)
@@ -306,15 +297,21 @@ class DendaController extends Controller
 
     public function lihatBukti(PembayaranDenda $pembayaran)
     {
-        abort_unless($pembayaran->bukti_pembayaran, 404);
-        abort_unless(Storage::disk('s3')->exists($pembayaran->bukti_pembayaran), 404);
+        $path = $pembayaran->bukti_pembayaran;
+        abort_unless($path, 404);
 
-        return Storage::disk('s3')->response(
-            $pembayaran->bukti_pembayaran,
-            null,
-            ['X-Content-Type-Options' => 'nosniff'],
-            'inline'
-        );
+        foreach (['s3', 'local'] as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return Storage::disk($disk)->response(
+                    $path,
+                    null,
+                    ['X-Content-Type-Options' => 'nosniff'],
+                    'inline'
+                );
+            }
+        }
+
+        abort(404);
     }
 
     public function verifikasiPembayaran(Request $request, PembayaranDenda $pembayaran)

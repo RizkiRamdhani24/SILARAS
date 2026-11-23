@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Petugas\TransaksiController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Anggota;
@@ -37,6 +38,15 @@ Route::controller(AuthController::class)->group(function () {
 Route::controller(GoogleAuthController::class)->middleware('guest:anggota,petugas')->group(function () {
     Route::get('/auth/google', 'redirect')->name('auth.google.redirect');
     Route::get('/auth/google/callback', 'callback')->name('auth.google.callback');
+});
+
+Route::controller(PasswordResetController::class)->middleware('guest:anggota,petugas')->group(function () {
+    Route::get('/forgot-password', 'showAnggotaLinkRequestForm')->name('password.request');
+    Route::post('/forgot-password', 'sendAnggotaResetLink')->name('password.email');
+    Route::get('/petugas/forgot-password', 'showPetugasLinkRequestForm')->name('petugas.password.request');
+    Route::post('/petugas/forgot-password', 'sendPetugasResetLink')->name('petugas.password.email');
+    Route::get('/reset-password/{token}', 'showResetForm')->name('password.reset');
+    Route::post('/reset-password', 'reset')->name('password.update');
 });
 
 Route::get('/anggota/daftar-sukses', fn () => redirect()->route('anggota.dashboard'))

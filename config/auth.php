@@ -54,12 +54,17 @@ return [
     |--------------------------------------------------------------------------
     | Resetting Passwords
     |--------------------------------------------------------------------------
-    | Tidak dipakai saat ini, tapi dibiarkan agar konfigurasi tidak error.
     */
 
     'passwords' => [
         'anggota' => [
             'provider' => 'anggota',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'petugas' => [
+            'provider' => 'petugas',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,

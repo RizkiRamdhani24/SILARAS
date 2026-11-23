@@ -106,4 +106,12 @@ Repository menggunakan alur branch berikut:
 - System Analyst memastikan implementasi mengikuti kebutuhan sistem dan dokumen analisis.
 - Ketua Divisi Programmer mengoordinasikan pekerjaan, memantau integrasi, dan membantu penyelesaian masalah teknis.
 
+## 6. Reset Kata Sandi
+
+Reset kata sandi tersedia untuk akun anggota dan petugas melalui email terdaftar. Login Google tetap tersedia; anggota yang mengatur ulang kata sandi juga dapat masuk menggunakan kata sandi lokal.
+
+Mailer lokal menggunakan `MAIL_MAILER=log`, sehingga email reset hanya dicatat ke log aplikasi. Agar email benar-benar terkirim di Railway, atur `MAIL_MAILER=smtp`, `MAIL_SCHEME=tls`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`, dan `MAIL_FROM_NAME` sesuai penyedia SMTP. Pastikan `APP_URL` menunjuk ke URL aplikasi Railway.
+
+Setelah deploy migration baru, jalankan `php artisan migrate --force` pada environment Railway agar tabel token reset tersedia.
+
 **Catatan:** Nama branch pada dokumen ini merupakan rancangan pembagian kerja. Pembuatan branch, sinkronisasi kode, dan penggabungan ke `develop` atau `main` harus dilakukan sesuai kondisi repository yang sebenarnya.

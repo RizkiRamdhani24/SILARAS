@@ -67,6 +67,10 @@
                 </div>
             </div>
 
+            <p class="silaras-login-register-link">
+                <a href="{{ route('password.request') }}">Lupa kata sandi?</a>
+            </p>
+
             <button class="silaras-login-submit" type="submit">Masuk</button>
         </form>
 

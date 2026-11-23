@@ -14,7 +14,9 @@ use App\Services\DendaService;
 use App\Services\LogAktivitasService;
 use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -237,7 +239,7 @@ class DendaPembayaranTest extends TestCase
             ->assertHeader('Content-Type', 'image/png')
             ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-        $body = $response->getContent();
+        $body = $response->streamedContent();
         $this->assertSame($png, $body);
         $this->assertSame('image/png', getimagesizefromstring($body)['mime']);
         $this->assertSame((string) strlen($png), $response->headers->get('Content-Length'));
@@ -246,9 +248,55 @@ class DendaPembayaranTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_qris_image_uses_storage_stream_instead_of_local_path(): void
+    {
+        $member = $this->createMember('Anggota Pertama');
+        $bill = $this->createBill($member);
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/iwAAAABJRU5ErkJggg==');
+        $disk = \Mockery::mock(FilesystemAdapter::class);
+        $disk->shouldReceive('exists')
+            ->once()
+            ->with('qris/qris.png')
+            ->andReturnTrue();
+        $disk->shouldReceive('response')
+            ->once()
+            ->with('qris/qris.png', null, [
+                'Content-Type' => 'image/png',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store',
+            ])
+            ->andReturn(Response::make($png, 200, ['Content-Type' => 'image/png']));
+        $disk->shouldNotReceive('path');
+        Storage::shouldReceive('disk')
+            ->twice()
+            ->with('s3')
+            ->andReturn($disk);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.denda.qris', $bill))
+            ->assertOk()
+            ->assertContent($png);
+    }
+
+    public function test_qris_image_falls_back_to_local_storage_when_not_in_s3(): void
+    {
+        Storage::fake('local');
+        $member = $this->createMember('Anggota Pertama');
+        $bill = $this->createBill($member);
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/iwAAAABJRU5ErkJggg==');
+        Storage::disk('local')->put('qris/qris.png', $png);
+
+        $this->actingAs($member, 'anggota')
+            ->get(route('anggota.denda.qris', $bill))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertStreamedContent($png);
+    }
+
     public function test_missing_qris_file_is_logged_and_returns_a_clear_404(): void
     {
         Storage::fake('s3');
+        Storage::fake('local');
         Log::spy();
 
         $member = $this->createMember('Anggota Pertama');
@@ -261,7 +309,7 @@ class DendaPembayaranTest extends TestCase
         Log::shouldHaveReceived('error')
             ->once()
             ->with('QRIS image file not found.', [
-                'path' => Storage::disk('s3')->path('qris/qris.png'),
+                'path' => 'qris/qris.png',
                 'tagihan_id' => $bill->id_tagihan_denda,
             ]);
     }
@@ -306,6 +354,25 @@ class DendaPembayaranTest extends TestCase
             ->assertHeader('Content-Type', 'image/png')
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Content-Disposition', 'inline; filename=bukti.png');
+    }
+
+    public function test_staff_can_open_legacy_payment_proof_from_local_storage(): void
+    {
+        Storage::fake('local');
+        $member = $this->createMember('Anggota Pertama');
+        $staff = $this->createStaff();
+        $bill = $this->createBill($member);
+        $proofPath = 'bukti-pembayaran/bukti-lama.png';
+        Storage::disk('local')->put($proofPath, 'legacy proof image data');
+        $payment = $this->createPayment($bill, $member, '100.00');
+        $payment->update(['bukti_pembayaran' => $proofPath]);
+
+        $this->actingAs($staff, 'petugas')
+            ->get(route('petugas.denda.pembayaran.bukti', $payment))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('Content-Disposition', 'inline; filename=bukti-lama.png');
     }
 
     public function test_member_cannot_submit_payment_for_another_members_bill(): void

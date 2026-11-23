@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class Anggota extends Authenticatable
 {
-    use HasApiTokens;
+    use HasApiTokens, Notifiable;
 
     public const STATUS_AKTIF = 'aktif';
     public const STATUS_NONAKTIF = 'nonaktif';
@@ -34,6 +35,16 @@ class Anggota extends Authenticatable
         return [
             'password' => 'hashed'
         ];
+    }
+
+    public function getEmailForPasswordReset()
+    {
+        return $this->email_anggota;
+    }
+
+    public function routeNotificationForMail($notification = null)
+    {
+        return $this->email_anggota;
     }
 
     public function peminjaman(): HasMany
